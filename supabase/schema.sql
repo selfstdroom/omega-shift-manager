@@ -79,3 +79,26 @@ create table public.assignments (
 create index availabilities_project_status_idx on public.availabilities(project_id, status);
 create index assignments_staff_idx on public.assignments(staff_id);
 create index projects_company_date_idx on public.projects(company_id, work_date, start_time);
+
+alter table public.companies enable row level security;
+alter table public.workplaces enable row level security;
+alter table public.profiles enable row level security;
+alter table public.projects enable row level security;
+alter table public.availabilities enable row level security;
+alter table public.assignment_runs enable row level security;
+alter table public.assignments enable row level security;
+
+create or replace function public.current_company_id() returns uuid language sql stable security definer set search_path = public as $$
+  select company_id from public.profiles where id = auth.uid()
+$$;
+
+create policy "profiles_select_company" on public.profiles for select using (company_id = public.current_company_id() or id = auth.uid());
+create policy "profiles_insert_self" on public.profiles for insert with check (id = auth.uid());
+create policy "profiles_update_admin_or_self" on public.profiles for update using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+
+create policy "workplaces_company_all" on public.workplaces for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "projects_company_all" on public.projects for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "availabilities_company_all" on public.availabilities for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "assignment_runs_company_all" on public.assignment_runs for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "assignments_company_all" on public.assignments for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "companies_select_own" on public.companies for select using (id = public.current_company_id());

@@ -1,2 +1,2 @@
-export default function Page(){return <Form title="事業所作成" fields={["事業所名","住所"]}/>}
-function Form({title,fields}:{title:string;fields:string[]}){return <div className="max-w-xl rounded bg-white p-6 shadow"><h1 className="text-2xl font-bold">{title}</h1><form className="mt-4 space-y-3">{fields.map(f=><label className="block" key={f}><span className="text-sm">{f}</span><input className="mt-1 w-full rounded border p-2" placeholder={f}/></label>)}<button className="rounded bg-slate-900 px-4 py-2 text-white" type="button">保存（MVP）</button></form></div>}
+import { redirect } from 'next/navigation';
+export default function Page(){redirect('/admin/workplaces')}
