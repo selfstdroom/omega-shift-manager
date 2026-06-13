@@ -96,9 +96,9 @@ export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
         assignedProjectsByStaff.set(staff.id, [...(assignedProjectsByStaff.get(staff.id) ?? []), project]);
       });
 
-      const leaderCount = assignments.filter((assignment) => assignment.is_leader).length;
+      const assignedLeaderCount = assignments.filter((assignment) => assignment.is_leader).length;
       const warnings: AssignmentResult['warnings'] = [];
-      if (leaderCount < requiredLeaderCount(project)) warnings.push('リーダー不足');
+      if (assignedLeaderCount < requiredLeaderCount(project)) warnings.push('リーダー不足');
       if (assignments.length < project.required_people) warnings.push('人数不足');
 
       return { project, assignments, warnings };
