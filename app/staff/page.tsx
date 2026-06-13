@@ -1,0 +1,2 @@
+import { NavCard } from '@/components/NavCard';
+export default function Page(){return <div className="space-y-5"><h1 className="text-3xl font-bold">スタッフ用ホーム</h1><div className="grid gap-4 md:grid-cols-3"><NavCard href="/staff/availability" title="勤務可能日登録" description="案件ごとに可否を登録"/><NavCard href="/staff/shifts" title="自分のシフト一覧" description="自分に配置された案件のみ確認"/><NavCard href="/staff/calendar" title="カレンダー" description="日付ごとの配置確認"/></div></div>}

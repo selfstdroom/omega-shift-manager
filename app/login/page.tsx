@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function LoginPage() { return <div className="max-w-xl rounded-xl bg-white p-6 shadow"><h1 className="text-2xl font-bold">ログイン</h1><p className="mt-2 text-slate-600">MVPでは認証の代わりに権限別リンクで遷移します。Supabase Authは後続で接続できます。</p><div className="mt-6 flex gap-3"><Link className="rounded bg-slate-900 px-4 py-2 text-white" href="/admin">adminで入る</Link><Link className="rounded bg-blue-600 px-4 py-2 text-white" href="/staff">staffで入る</Link></div></div>; }
