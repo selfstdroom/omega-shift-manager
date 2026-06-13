@@ -30,9 +30,19 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ## Supabase設定手順
 
 1. Supabaseプロジェクトを作成します。
-2. SQL Editorで `supabase/schema.sql` を実行し、テーブル、enum、index、RLS policyを作成します。
-3. 初期データとして `companies` を1件、`workplaces` を1件作成します。
-4. 管理者ユーザーをAuthenticationで作成後、該当 `auth.users.id` を使って `profiles` に以下のようなレコードを追加します。
+2. Supabase Dashboard > SQL Editor を開き、`supabase/schema.sql` の内容を貼り付けて **Run** を実行します。
+   - `schema.sql` は既存のテーブル・enum・関連関数を削除してから再作成するため、再実行すると既存データは削除されます。
+3. 続けて SQL Editor の新しいクエリに `supabase/seed.sql` の内容を貼り付けて **Run** を実行します。
+   - 初期データとして、会社「オメガテクノ」、事業所「本社」「茨城営業所」、管理者1名、スタッフ10名（うちリーダー3名）、案件5件、勤務可能日データを投入します。
+   - `profiles.id` は `auth.users(id)` と連携するため、seedではデモ用の認証ユーザーも作成します。
+4. seedで作成されるデモユーザーは次の認証情報でログインできます。
+
+| 種別 | メールアドレス | パスワード |
+| --- | --- | --- |
+| 管理者 | `admin@omega-techno.example` | `password123` |
+| スタッフ | `staff01@omega-techno.example` 〜 `staff10@omega-techno.example` | `password123` |
+
+本番用の管理者を作成する場合は、Authenticationでユーザーを作成後、該当する `auth.users.id` を使って `profiles` に以下のようなレコードを追加します。
 
 ```sql
 insert into public.profiles (id, company_id, workplace_id, name, role, staff_role)
