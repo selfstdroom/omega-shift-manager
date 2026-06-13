@@ -1,0 +1,18 @@
+create extension if not exists pgcrypto;
+
+do $$ begin create type user_role as enum ('admin', 'staff'); exception when duplicate_object then null; end $$;
+do $$ begin create type staff_role as enum ('staff', 'leader'); exception when duplicate_object then null; end $$;
+do $$ begin create type availability_status as enum ('available', 'conditional', 'unavailable'); exception when duplicate_object then null; end $$;
+do $$ begin create type assignment_status as enum ('draft', 'confirmed'); exception when duplicate_object then null; end $$;
+
+create table if not exists companies (id uuid primary key default gen_random_uuid(), name text not null, created_at timestamptz not null default now());
+create table if not exists workplaces (id uuid primary key default gen_random_uuid(), company_id uuid not null references companies(id) on delete cascade, name text not null, address text not null default '', created_at timestamptz not null default now());
+create table if not exists profiles (id uuid primary key default gen_random_uuid(), company_id uuid not null references companies(id) on delete cascade, workplace_id uuid not null references workplaces(id) on delete restrict, name text not null, role user_role not null default 'staff', staff_role staff_role not null default 'staff', phone text not null default '', created_at timestamptz not null default now());
+create table if not exists projects (id uuid primary key default gen_random_uuid(), company_id uuid not null references companies(id) on delete cascade, workplace_id uuid not null references workplaces(id) on delete restrict, title text not null, work_date date not null, start_time time not null, end_time time not null, location text not null default '', required_people integer not null check (required_people >= 1), required_leaders integer not null default 0 check (required_leaders >= 0), note text not null default '', created_at timestamptz not null default now(), check (end_time > start_time), check (required_leaders <= required_people));
+create table if not exists availabilities (id uuid primary key default gen_random_uuid(), company_id uuid not null references companies(id) on delete cascade, project_id uuid not null references projects(id) on delete cascade, staff_id uuid not null references profiles(id) on delete cascade, status availability_status not null default 'unavailable', note text not null default '', created_at timestamptz not null default now(), unique (project_id, staff_id));
+create table if not exists assignment_runs (id uuid primary key default gen_random_uuid(), company_id uuid not null references companies(id) on delete cascade, executed_by uuid references profiles(id) on delete set null, project_id uuid references projects(id) on delete set null, created_at timestamptz not null default now());
+create table if not exists assignments (id uuid primary key default gen_random_uuid(), company_id uuid not null references companies(id) on delete cascade, project_id uuid not null references projects(id) on delete cascade, staff_id uuid not null references profiles(id) on delete cascade, run_id uuid not null references assignment_runs(id) on delete cascade, status assignment_status not null default 'draft', is_leader boolean not null default false, created_at timestamptz not null default now(), unique (project_id, staff_id, status));
+
+create index if not exists idx_projects_company_date on projects(company_id, work_date, start_time);
+create index if not exists idx_availabilities_project_status on availabilities(project_id, status);
+create index if not exists idx_assignments_staff on assignments(staff_id, status);
