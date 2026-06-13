@@ -1,56 +1,106 @@
-import type { Assignment, AssignmentResult, Availability, Profile, Project } from '@/types/domain';
+import type { Assignment, AssignmentResult, AutoAssignInput, AvailabilityStatus, Profile, Project } from '@/lib/types';
 
-type AutoAssignInput = { companyId: string; executedBy: string; projects: Project[]; profiles: Profile[]; availabilities: Availability[]; previousAssignments?: Assignment[]; runId?: string };
-const overlaps = (a: Project, b: Project) => a.work_date === b.work_date && a.start_time < b.end_time && b.start_time < a.end_time;
+const overlaps = (a: Project, b: Project) =>
+  a.work_date === b.work_date && a.start_time < b.end_time && b.start_time < a.end_time;
+
+const requiredLeaderCount = (project: Project) => Math.max(1, project.required_leaders ?? 0);
 
 export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
   const runId = input.runId ?? `run-${Date.now()}`;
-  const counts = new Map<string, number>();
-  input.previousAssignments?.forEach((a) => counts.set(a.staff_id, (counts.get(a.staff_id) ?? 0) + 1));
-  const assignedByStaff = new Map<string, Project[]>();
+  const createdAt = new Date().toISOString();
+  const previousCounts = new Map<string, number>();
+  input.previousAssignments?.forEach((assignment) => {
+    previousCounts.set(assignment.staff_id, (previousCounts.get(assignment.staff_id) ?? 0) + 1);
+  });
 
-  return [...input.projects].sort((a, b) => `${a.work_date} ${a.start_time}`.localeCompare(`${b.work_date} ${b.start_time}`)).map((project) => {
-    const availabilityByStaff = new Map(input.availabilities.filter((a) => a.project_id === project.id && a.status !== 'unavailable').map((a) => [a.staff_id, a]));
-    const candidates = input.profiles
-      .filter((p) => p.role === 'staff' && p.company_id === project.company_id && availabilityByStaff.has(p.id))
-      .filter((p) => !(assignedByStaff.get(p.id) ?? []).some((assignedProject) => overlaps(project, assignedProject)))
-      .sort((a, b) => {
-        const avA = availabilityByStaff.get(a.id)!.status === 'available' ? 0 : 1;
-        const avB = availabilityByStaff.get(b.id)!.status === 'available' ? 0 : 1;
-        return avA - avB || (counts.get(a.id) ?? 0) - (counts.get(b.id) ?? 0) || a.created_at.localeCompare(b.created_at);
+  const assignedProjectsByStaff = new Map<string, Project[]>();
+
+  return [...input.projects]
+    .filter((project) => project.company_id === input.companyId)
+    .sort((a, b) => `${a.work_date} ${a.start_time}`.localeCompare(`${b.work_date} ${b.start_time}`))
+    .map((project) => {
+      const availabilityByStaff = new Map(
+        input.availabilities
+          .filter((availability) => availability.project_id === project.id && availability.status !== 'unavailable')
+          .map((availability) => [availability.staff_id, availability.status]),
+      );
+
+      const sortByPastCount = (a: Profile, b: Profile) =>
+        (previousCounts.get(a.id) ?? 0) - (previousCounts.get(b.id) ?? 0) ||
+        a.created_at.localeCompare(b.created_at) ||
+        a.id.localeCompare(b.id);
+
+      const candidates = (status: AvailabilityStatus) =>
+        input.profiles
+          .filter((profile) => profile.role === 'staff' && profile.company_id === input.companyId)
+          .filter((profile) => availabilityByStaff.get(profile.id) === status)
+          .filter((profile) =>
+            !(assignedProjectsByStaff.get(profile.id) ?? []).some((assignedProject) => overlaps(project, assignedProject)),
+          )
+          .sort(sortByPastCount);
+
+      const picked: Profile[] = [];
+      const leaderCount = () => picked.filter((staff) => staff.staff_role === 'leader').length;
+      const hasPicked = (staff: Profile) => picked.some((pickedStaff) => pickedStaff.id === staff.id);
+      const makeRoomForLeader = () => {
+        if (picked.length < project.required_people) return true;
+        const removableIndex = [...picked]
+          .map((staff, index) => ({ index, staff }))
+          .reverse()
+          .find(({ staff }) => staff.staff_role !== 'leader')?.index;
+        if (removableIndex === undefined) return false;
+        picked.splice(removableIndex, 1);
+        return true;
+      };
+
+      const pickLeaders = (pool: Profile[]) => {
+        for (const staff of pool) {
+          if (leaderCount() >= requiredLeaderCount(project)) break;
+          if (staff.staff_role !== 'leader' || hasPicked(staff)) continue;
+          if (!makeRoomForLeader()) break;
+          picked.push(staff);
+        }
+      };
+
+      const pickPeople = (pool: Profile[]) => {
+        for (const staff of pool) {
+          if (picked.length >= project.required_people) break;
+          if (!hasPicked(staff)) picked.push(staff);
+        }
+      };
+
+      const fillFromStatus = (status: AvailabilityStatus) => {
+        const pool = candidates(status);
+        pickLeaders(pool);
+        pickPeople(pool);
+      };
+
+      fillFromStatus('available');
+      if (picked.length < project.required_people || leaderCount() < requiredLeaderCount(project)) {
+        fillFromStatus('conditional');
+      }
+
+      const assignments = picked.map<Assignment>((staff) => ({
+        id: `${runId}-${project.id}-${staff.id}`,
+        company_id: input.companyId,
+        project_id: project.id,
+        staff_id: staff.id,
+        run_id: runId,
+        status: 'draft',
+        is_leader: staff.staff_role === 'leader',
+        created_at: createdAt,
+      }));
+
+      picked.forEach((staff) => {
+        previousCounts.set(staff.id, (previousCounts.get(staff.id) ?? 0) + 1);
+        assignedProjectsByStaff.set(staff.id, [...(assignedProjectsByStaff.get(staff.id) ?? []), project]);
       });
 
-    const picked: Profile[] = [];
-    const pick = (pool: Profile[], limit: number) => {
-      for (const staff of pool) {
-        if (picked.length >= limit) break;
-        if (!picked.some((p) => p.id === staff.id)) picked.push(staff);
-      }
-    };
+      const leaderCount = assignments.filter((assignment) => assignment.is_leader).length;
+      const warnings: AssignmentResult['warnings'] = [];
+      if (leaderCount < requiredLeaderCount(project)) warnings.push('リーダー不足');
+      if (assignments.length < project.required_people) warnings.push('人数不足');
 
-    pick(candidates.filter((p) => p.staff_role === 'leader'), project.required_leaders);
-    pick(candidates, project.required_people);
-
-    const assignments = picked.map<Assignment>((staff) => ({
-      id: `${runId}-${project.id}-${staff.id}`,
-      company_id: input.companyId,
-      project_id: project.id,
-      staff_id: staff.id,
-      run_id: runId,
-      status: 'draft',
-      is_leader: staff.staff_role === 'leader',
-      created_at: new Date().toISOString(),
-    }));
-
-    picked.forEach((staff) => {
-      counts.set(staff.id, (counts.get(staff.id) ?? 0) + 1);
-      assignedByStaff.set(staff.id, [...(assignedByStaff.get(staff.id) ?? []), project]);
+      return { project, assignments, warnings };
     });
-
-    const leaderCount = assignments.filter((a) => a.is_leader).length;
-    const warnings: AssignmentResult['warnings'] = [];
-    if (leaderCount < project.required_leaders) warnings.push('リーダー不足');
-    if (assignments.length < project.required_people) warnings.push('人数不足');
-    return { project, assignments, warnings };
-  });
 }
