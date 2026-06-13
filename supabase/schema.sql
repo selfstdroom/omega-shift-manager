@@ -1,3 +1,19 @@
+-- Supabase SQL Editorで再実行しやすいように、依存順に削除してから作成します。
+drop table if exists public.assignments cascade;
+drop table if exists public.assignment_runs cascade;
+drop table if exists public.availabilities cascade;
+drop table if exists public.projects cascade;
+drop table if exists public.profiles cascade;
+drop table if exists public.workplaces cascade;
+drop table if exists public.companies cascade;
+
+drop function if exists public.current_company_id() cascade;
+
+drop type if exists public.assignment_status cascade;
+drop type if exists public.availability_status cascade;
+drop type if exists public.staff_role cascade;
+drop type if exists public.user_role cascade;
+
 create extension if not exists "pgcrypto";
 
 create type public.user_role as enum ('admin', 'staff');
@@ -7,7 +23,7 @@ create type public.assignment_status as enum ('draft', 'confirmed');
 
 create table public.companies (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  name text not null unique,
   created_at timestamptz not null default now()
 );
 
@@ -16,7 +32,8 @@ create table public.workplaces (
   company_id uuid not null references public.companies(id) on delete cascade,
   name text not null,
   address text not null default '',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (company_id, name)
 );
 
 create table public.profiles (
@@ -94,7 +111,7 @@ $$;
 
 create policy "profiles_select_company" on public.profiles for select using (company_id = public.current_company_id() or id = auth.uid());
 create policy "profiles_insert_self" on public.profiles for insert with check (id = auth.uid());
-create policy "profiles_update_admin_or_self" on public.profiles for update using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "profiles_update_company" on public.profiles for update using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 
 create policy "workplaces_company_all" on public.workplaces for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 create policy "projects_company_all" on public.projects for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
