@@ -114,6 +114,8 @@ create table public.notifications (
   title text not null,
   message text not null,
   type public.notification_type not null default 'system',
+  project_id uuid references public.projects(id) on delete set null,
+  assignment_id uuid references public.assignments(id) on delete set null,
   is_read boolean not null default false,
   created_at timestamptz not null default now()
 );

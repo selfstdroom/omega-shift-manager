@@ -38,4 +38,8 @@ export const getProjectFill = (project: Project, assignments = getDemoAssignment
 
 export const getDemoShiftRows = (staffId = demoStaff.id) => getDemoAssignments()
   .filter((a) => a.staff_id === staffId)
-  .map((a) => ({ ...a, projects: mockProjects.find((p) => p.id === a.project_id) ?? null }));
+  .map((a, index) => ({
+    ...a,
+    status: index < 2 ? 'confirmed' as const : 'draft' as const,
+    projects: mockProjects.find((p) => p.id === a.project_id) ?? null,
+  }));

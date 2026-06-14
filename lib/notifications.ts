@@ -34,6 +34,8 @@ export const buildShiftNotifications = ({ assignments, projects }: AssignmentNot
       title: 'シフトが確定しました',
       message: buildShiftNotificationMessage(project, assignment),
       type: 'shift_confirmed',
+      project_id: project.id,
+      assignment_id: assignment.id,
       is_read: false,
       created_at: createdAt,
     });
