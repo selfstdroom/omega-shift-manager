@@ -24,8 +24,9 @@ export default function StaffLoginPage() {
     if (res.error) { setMessage(res.error.message); setLoading(false); return; }
     const user = res.data.user;
     if (mode === 'signup' && user) {
+      const { id: userId } = user;
       const { data: workplace } = await supabase.from('workplaces').select('id, company_id').limit(1).maybeSingle();
-      if (workplace) await supabase.from('profiles').upsert({ id: user.id, company_id: workplace.company_id, workplace_id: workplace.id, name: name || email, role: 'staff', staff_role: 'staff' });
+      if (workplace) await supabase.from('profiles').upsert({ id: userId, company_id: workplace.company_id, workplace_id: workplace.id, name: name || email, role: 'staff', staff_role: 'staff' });
     }
     router.replace('/staff');
   }

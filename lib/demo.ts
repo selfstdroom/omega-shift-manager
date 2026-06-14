@@ -2,6 +2,12 @@ import { autoAssign } from '@/lib/autoAssign';
 import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects } from '@/lib/mockData';
 import type { Assignment, Profile, Project } from '@/lib/types';
 
+export const DEMO_USER = {
+  id: 'demo-user',
+  name: 'デモスタッフ',
+  role: 'staff',
+} as const;
+
 export const demoAdmin: Profile = mockProfiles.find((p) => p.role === 'admin') ?? mockProfiles[0];
 export const demoStaff: Profile = mockProfiles.find((p) => p.role === 'staff') ?? mockProfiles[1];
 
