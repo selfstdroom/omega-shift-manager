@@ -10,7 +10,7 @@ export function ResponsiveEditor({ open, title, subtitle, children, onClose }: {
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200 md:hidden" />
         <div className="mb-5 flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">クリックして編集</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">詳細確認</p>
             <h2 className="mt-1 text-xl font-bold text-slate-950">{title}</h2>
             {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
           </div>
