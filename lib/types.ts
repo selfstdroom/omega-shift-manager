@@ -1,6 +1,8 @@
 export type UserRole = 'admin' | 'staff';
 export type StaffRole = 'staff' | 'leader';
 export type AvailabilityStatus = 'available' | 'conditional' | 'unavailable';
+export type AvailabilityPeriodType = 'monthly' | 'weekly';
+export type AvailabilityPeriodStatus = 'open' | 'closed';
 export type AssignmentStatus = 'draft' | 'confirmed';
 export type NotificationType = 'shift_confirmed' | 'system';
 
@@ -42,6 +44,18 @@ export type Project = {
   required_people: number;
   required_leaders?: number | null;
   note: string;
+  created_at: string;
+};
+
+export type AvailabilityPeriod = {
+  id: string;
+  company_id: string;
+  period_type: AvailabilityPeriodType;
+  target_month?: string | null;
+  week_start_date?: string | null;
+  week_end_date?: string | null;
+  deadline: string;
+  status: AvailabilityPeriodStatus;
   created_at: string;
 };
 

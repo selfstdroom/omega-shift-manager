@@ -1,4 +1,4 @@
-import type { Assignment, Availability, Company, Profile, Project, Workplace } from '@/lib/types';
+import type { Assignment, Availability, AvailabilityPeriod, Company, Profile, Project, Workplace } from '@/lib/types';
 
 const now = '2026-06-13T00:00:00.000Z';
 
@@ -20,6 +20,13 @@ export const mockProfiles: Profile[] = [
   { id: 'staff-3', company_id: mockCompany.id, workplace_id: 'wp-2', name: '高橋 リーダー', role: 'staff', staff_role: 'leader', phone: '090-0000-0004', created_at: now },
   { id: 'staff-4', company_id: mockCompany.id, workplace_id: 'wp-2', name: '田中 スタッフ', role: 'staff', staff_role: 'staff', phone: '090-0000-0005', created_at: now },
   { id: 'staff-5', company_id: mockCompany.id, workplace_id: 'wp-1', name: '伊藤 スタッフ', role: 'staff', staff_role: 'staff', phone: '090-0000-0006', created_at: now },
+];
+
+
+export const mockAvailabilityPeriods: AvailabilityPeriod[] = [
+  { id: 'period-month-2026-07', company_id: mockCompany.id, period_type: 'monthly', target_month: '2026-07', week_start_date: null, week_end_date: null, deadline: '2026-06-25T23:59:00', status: 'open', created_at: now },
+  { id: 'period-week-2026-06-22', company_id: mockCompany.id, period_type: 'weekly', target_month: null, week_start_date: '2026-06-22', week_end_date: '2026-06-28', deadline: '2026-06-20T23:59:00', status: 'open', created_at: now },
+  { id: 'period-week-2026-06-15', company_id: mockCompany.id, period_type: 'weekly', target_month: null, week_start_date: '2026-06-15', week_end_date: '2026-06-21', deadline: '2026-06-13T23:59:00', status: 'closed', created_at: now },
 ];
 
 export const mockProjects: Project[] = [

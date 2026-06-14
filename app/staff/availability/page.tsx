@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { formatDateTimeJa, formatPeriodLabel, getActivePeriod, getDaysUntilDeadline, getPeriodDateRange, periodTypeLabel } from '@/lib/availabilityPeriods';
 import { DEMO_USER } from '@/lib/demo';
-import { mockAvailabilities, mockCompany } from '@/lib/mockData';
+import { mockAvailabilities, mockAvailabilityPeriods, mockCompany } from '@/lib/mockData';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
-import type { Availability, AvailabilityStatus } from '@/lib/types';
+import type { Availability, AvailabilityPeriod, AvailabilityPeriodType, AvailabilityStatus } from '@/lib/types';
 
 const options: { value: AvailabilityStatus; mark: string; label: string; className: string; activeClassName: string; cellClassName: string }[] = [
   { value: 'available', mark: '○', label: 'いける', className: 'border-green-200 bg-green-50 text-green-700', activeClassName: 'border-green-500 bg-green-500 text-white shadow-green-200', cellClassName: 'border-green-200 bg-green-50/70' },
@@ -27,13 +28,19 @@ const PANEL_MARGIN = 12;
 type PanelPosition = { top: number; left: number };
 
 export default function Page() {
-  const [month, setMonth] = useState(() => new Date('2026-06-01'));
+  const [periodType, setPeriodType] = useState<AvailabilityPeriodType>('monthly');
+  const [periods, setPeriods] = useState<AvailabilityPeriod[]>(mockAvailabilityPeriods);
+  const [month, setMonth] = useState(() => new Date('2026-07-01'));
   const [avs, setAvs] = useState<Availability[]>(mockAvailabilities.filter((a) => a.staff_id === DEMO_USER.id));
   const [selectedDate, setSelectedDate] = useState(fmt(new Date('2026-06-20')));
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const [msg, setMsg] = useState('デモスタッフとして表示しています');
 
+  const period = useMemo(() => getActivePeriod(periods, periodType), [periods, periodType]);
   const days = useMemo(() => buildCalendarDays(month), [month]);
+  const weekDays = useMemo(() => buildWeekDays(period), [period]);
+  const daysLeft = getDaysUntilDeadline(period.deadline);
+  const isAfterDeadline = daysLeft < 0;
   const selected = avs.find((a) => a.work_date === selectedDate && a.staff_id === DEMO_USER.id);
 
   async function load() {
@@ -41,7 +48,8 @@ export default function Page() {
     if (!s) return;
     const { data: { user } } = await s.auth.getUser();
     const currentUser = user ?? DEMO_USER;
-    const { data, error } = await s.from('availabilities').select('*').eq('staff_id', currentUser.id);
+    const [{ data, error }, { data: periodRows }] = await Promise.all([s.from('availabilities').select('*').eq('staff_id', currentUser.id), s.from('availability_periods').select('*')]);
+    if (periodRows?.length) setPeriods(periodRows as AvailabilityPeriod[]);
     if (error || !data?.length) {
       setMsg(`${error?.message ?? 'Supabaseデータなし'}（デモデータを表示しています）`);
       return;
@@ -92,20 +100,20 @@ export default function Page() {
     <div className="overflow-x-hidden">
       <PageHeader title="予定提出" description="調整さんのように、案件ごとではなく日付ごとに勤務可否をまとめて登録します。未入力日は不可扱いです。" />
       {msg && <div className="mb-4"><Badge tone="blue">{msg}</Badge></div>}
-      <Card className="mb-4 p-4">
+      <Card className="mb-4 p-4"><div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 sm:w-fit">{(['monthly','weekly'] as AvailabilityPeriodType[]).map((type) => <Button key={type} variant={periodType === type ? 'primary' : 'ghost'} onClick={() => { setPeriodType(type); setPanelPosition(null); }}>{periodTypeLabel(type)}</Button>)}</div><div className={`mb-4 rounded-2xl border p-4 ${isAfterDeadline ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-100 bg-blue-50 text-blue-900'}`}><p className="font-bold">{period.period_type === 'monthly' ? `${formatPeriodLabel(period)}の勤務可能日は ${formatDateTimeJa(period.deadline)} までに提出してください` : `${formatPeriodLabel(period)} の勤務可能日を ${formatDateTimeJa(period.deadline)} までに提出してください`}</p>{isAfterDeadline && <p className="mt-1 text-sm font-semibold">締切後です。今回は警告のみ表示し、編集は可能です。</p>}</div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-950">{monthLabel(month)}</h2>
+            <h2 className="text-xl font-bold text-slate-950">{periodType === 'monthly' ? monthLabel(month) : `${formatPeriodLabel(period)} の勤務可能日を提出`}</h2>
             <p className="text-sm text-slate-500">日付をタップして ○ △ × を入力できます</p>
           </div>
-          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:flex">
+          {periodType === 'monthly' && <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:flex">
             <Button variant="secondary" onClick={() => { setMonth(addMonths(month, -1)); setPanelPosition(null); }}>前月</Button>
             <Input type="month" value={toMonthInput(month)} onChange={(e) => { setMonth(new Date(`${e.target.value}-01`)); setPanelPosition(null); }} className="w-36" />
             <Button variant="secondary" onClick={() => { setMonth(addMonths(month, 1)); setPanelPosition(null); }}>翌月</Button>
-          </div>
+          </div>}
         </div>
       </Card>
-      <Card className="p-2 sm:p-5">
+      {periodType === 'monthly' ? <Card className="p-2 sm:p-5">
         <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 sm:gap-2">{['日','月','火','水','木','金','土'].map((d) => <div key={d}>{d}</div>)}</div>
         <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
           {days.map((day) => {
@@ -119,7 +127,7 @@ export default function Page() {
             </button>;
           })}
         </div>
-      </Card>
+      </Card> : <Card className="p-4"><div className="grid gap-3 sm:grid-cols-7">{weekDays.map((day) => { const av = avs.find((a) => a.work_date === day.date && a.staff_id === DEMO_USER.id); const opt = options.find((o) => o.value === (av?.status ?? 'unavailable'))!; return <button key={day.date} onClick={(event) => openPanel(day.date, event.currentTarget)} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${opt.cellClassName}`}><p className="text-xs font-bold text-slate-400">{day.weekday}</p><div className="mt-2 flex items-center justify-between"><span className="text-lg font-bold text-slate-950">{day.label}</span><span className={`rounded-full border px-3 py-1 text-xl font-black ${opt.className}`}>{opt.mark}</span></div>{av?.note && <p className="mt-2 text-xs text-slate-500">{av.note}</p>}</button>; })}</div></Card>}
       {panelPosition && (
         <div className="fixed inset-0 z-50 pointer-events-none">
           <div className="fixed bottom-0 left-0 right-0 w-full rounded-t-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/70 pointer-events-auto sm:absolute sm:w-[calc(100vw-24px)] sm:max-w-[344px] sm:rounded-3xl" style={typeof window !== 'undefined' && window.innerWidth >= 640 ? { top: panelPosition.top, left: panelPosition.left } : undefined}>
@@ -148,6 +156,11 @@ export default function Page() {
   );
 }
 
+function buildWeekDays(period: AvailabilityPeriod) {
+  const { start } = getPeriodDateRange(period);
+  const week = ['日','月','火','水','木','金','土'];
+  return Array.from({ length: 7 }, (_, i) => { const d = new Date(`${start}T00:00:00`); d.setDate(d.getDate() + i); return { date: fmt(d), label: `${d.getMonth() + 1}/${d.getDate()}`, weekday: week[d.getDay()] }; });
+}
 function buildCalendarDays(month: Date) {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const start = new Date(first); start.setDate(first.getDate() - first.getDay());
