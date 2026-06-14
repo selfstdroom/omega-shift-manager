@@ -8,3 +8,9 @@ insert into public.project_templates (id,company_id,workplace_id,template_name,t
 insert into public.projects (id,company_id,workplace_id,title,project_type,work_date,start_time,end_time,location,required_people,required_leaders,note) values ('project-1','company-omega','wp-1','倉庫棚卸サポート','single','2026-06-14','09:00','17:00','東京倉庫',3,1,'勤務可能日照合デモ'),('project-2','company-omega','wp-2','夜間搬入作業','single','2026-06-16','16:00','22:00','横浜センター',2,1,''),('project-4','company-omega','wp-1','商業施設キャンペーン運営','recurring','2026-06-18','10:00','18:00','新宿モール',4,1,'継続案件デモ') on conflict (id) do nothing;
 insert into public.project_days (id,project_id,work_date,start_time,end_time,required_people,required_leaders,note) values ('project-1','project-1','2026-06-14','09:00','17:00',3,1,'勤務可能日照合デモ'),('project-2','project-2','2026-06-16','16:00','22:00',2,1,''),('project-day-4-1','project-4','2026-06-18','10:00','18:00',4,1,'初日研修あり'),('project-day-4-2','project-4','2026-06-19','10:00','18:00',5,1,''),('project-day-4-3','project-4','2026-06-20','09:00','17:00',6,2,'週末増員') on conflict (id) do nothing;
 insert into public.availabilities (company_id,staff_id,work_date,status,note) values ('company-omega','staff-1','2026-06-14','available',''),('company-omega','staff-2','2026-06-14','available',''),('company-omega','staff-3','2026-06-16','available','') on conflict (staff_id,work_date) do update set status=excluded.status,note=excluded.note;
+
+-- Initial production administrator. The password is stored only as a bcrypt hash.
+-- Login ID: admin / initial password: omega1234 (change before production use).
+insert into public.admin_accounts (id, company_id, login_id, password_hash, name)
+values ('admin-account-1', 'company-omega', 'admin', crypt('omega1234', gen_salt('bf', 10)), '初期管理者')
+on conflict (login_id) do update set password_hash=excluded.password_hash, name=excluded.name, company_id=excluded.company_id;

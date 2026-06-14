@@ -1,6 +1,7 @@
 'use client';
 
 import { AuthGate } from '@/components/AuthGate';
+import { LogoutButton } from '@/components/LogoutButton';
 import { BottomNav, type BottomNavItem } from '@/components/ui/BottomNav';
 
 const nav: BottomNavItem[] = [
@@ -15,7 +16,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   return (
     <AuthGate allowedRole="staff">
       <div className="mx-auto min-h-[calc(100vh-57px)] max-w-5xl px-4 py-5 pb-24 sm:px-6 md:py-8 md:pb-8">
-        <div className="mx-auto max-w-3xl">{children}</div>
+        <div className="mx-auto max-w-3xl"><div className="mb-4 flex justify-end"><LogoutButton type="staff" /></div>{children}</div>
       </div>
       <BottomNav items={nav} />
     </AuthGate>
