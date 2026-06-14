@@ -72,3 +72,14 @@ values ('AUTH_USER_ID', 'COMPANY_ID', 'WORKPLACE_ID', '管理者', 'admin', 'lea
 ```bash
 npm run build
 ```
+
+
+## ログイン方式
+
+- 管理者ログイン: `/admin/login`
+  - 初期管理者ID: `admin`
+  - 初期管理者パスワード: `omega1234`
+  - 管理者はメールアドレスではなく、発行されたログインIDとパスワードでログインします。
+  - 本番利用前に初期管理者パスワードを必ず変更してください。
+- スタッフログイン: `/staff/login`
+  - スタッフは従来どおり Supabase Auth のメールアドレス / パスワードでログイン・登録します。

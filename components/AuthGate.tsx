@@ -20,7 +20,7 @@ export function AuthGate({ allowedRole, children }: { allowedRole: UserRole; chi
 
     supabase.auth.getUser().then(async ({ data, error }) => {
       if (error || !data.user) {
-        router.replace('/login');
+        router.replace(allowedRole === 'staff' ? '/staff/login' : '/admin/login');
         return;
       }
       const { data: profile, error: profileError } = await supabase

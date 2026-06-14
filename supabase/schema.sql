@@ -1,5 +1,6 @@
 -- Supabase SQL Editorで再実行しやすいように、依存順に削除してから作成します。
 drop table if exists public.assignments cascade;
+drop table if exists public.admin_accounts cascade;
 drop table if exists public.assignment_runs cascade;
 drop table if exists public.availabilities cascade;
 drop table if exists public.projects cascade;
@@ -34,6 +35,15 @@ create table public.workplaces (
   address text not null default '',
   created_at timestamptz not null default now(),
   unique (company_id, name)
+);
+
+create table public.admin_accounts (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  login_id text unique not null,
+  password_hash text not null,
+  name text not null,
+  created_at timestamptz not null default now()
 );
 
 create table public.profiles (
@@ -96,9 +106,11 @@ create table public.assignments (
 create index availabilities_project_status_idx on public.availabilities(project_id, status);
 create index assignments_staff_idx on public.assignments(staff_id);
 create index projects_company_date_idx on public.projects(company_id, work_date, start_time);
+create index admin_accounts_login_id_idx on public.admin_accounts(login_id);
 
 alter table public.companies enable row level security;
 alter table public.workplaces enable row level security;
+alter table public.admin_accounts enable row level security;
 alter table public.profiles enable row level security;
 alter table public.projects enable row level security;
 alter table public.availabilities enable row level security;
@@ -119,3 +131,18 @@ create policy "availabilities_company_all" on public.availabilities for all usin
 create policy "assignment_runs_company_all" on public.assignment_runs for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 create policy "assignments_company_all" on public.assignments for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 create policy "companies_select_own" on public.companies for select using (id = public.current_company_id());
+
+
+create or replace function public.verify_admin_login(input_login_id text, input_password text)
+returns table (id uuid, company_id uuid, login_id text, name text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select a.id, a.company_id, a.login_id, a.name
+  from public.admin_accounts a
+  where a.login_id = input_login_id
+    and a.password_hash = crypt(input_password, a.password_hash)
+  limit 1
+$$;
