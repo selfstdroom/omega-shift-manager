@@ -8,7 +8,7 @@ export type BottomNavItem = { href: string; label: string; icon: string };
 export function BottomNav({ items }: { items: BottomNavItem[] }) {
   const path = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white/95 pb-safe shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 grid border-t border-slate-200 bg-white/95 pb-safe shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur md:hidden" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
       {items.map((item) => {
         const active = path === item.href;
         return (

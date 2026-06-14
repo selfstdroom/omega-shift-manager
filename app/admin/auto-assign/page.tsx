@@ -11,6 +11,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { autoAssign } from '@/lib/autoAssign';
 import { demoAdmin } from '@/lib/demo';
 import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects } from '@/lib/mockData';
+import { createShiftConfirmedNotifications } from '@/lib/notifications';
 import type { Assignment, AssignmentResult, AvailabilityStatus, Profile, Project } from '@/lib/types';
 
 type Candidate = {
@@ -43,6 +44,7 @@ function AutoAssignContent() {
   const profiles = useMemo(() => (savedStaff ? [mockProfiles.find((p) => p.role === 'admin') ?? mockProfiles[0], ...(JSON.parse(savedStaff) as Profile[])] : mockProfiles), [savedStaff]);
   const [results, setResults] = useState<AssignmentResult[]>([]);
   const [dirtyConfirmed, setDirtyConfirmed] = useState<Record<string, boolean>>({});
+  const [notice, setNotice] = useState('');
 
   const run = () => {
     setDirtyConfirmed({});
@@ -87,10 +89,20 @@ function AutoAssignContent() {
 
   const removeStaff = (projectIdToUpdate: string, staffId: string) => updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: result.assignments.filter((a) => a.staff_id !== staffId) }));
   const setLeader = (projectIdToUpdate: string, staffId: string, isLeader: boolean) => updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: result.assignments.map((a) => (a.staff_id === staffId ? { ...a, is_leader: isLeader } : a)) }));
-  const confirmProject = (projectIdToUpdate: string) => updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: result.assignments.map((a) => ({ ...a, status: 'confirmed' })) }), false);
-  const confirmAll = () => {
-    setResults((current) => current.map((result) => ({ ...result, assignments: result.assignments.map((a) => ({ ...a, status: 'confirmed' })) })));
+  const confirmProject = async (projectIdToUpdate: string) => {
+    const target = results.find((result) => result.project.id === projectIdToUpdate);
+    if (!target) return;
+    const confirmedAssignments = target.assignments.map((a) => ({ ...a, status: 'confirmed' as const }));
+    await createShiftConfirmedNotifications({ assignments: confirmedAssignments, projects, profiles });
+    updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: confirmedAssignments }), false);
+    setNotice(`${target.project.title}を確定し、${confirmedAssignments.length}件のWebアプリ内通知を作成しました。`);
+  };
+  const confirmAll = async () => {
+    const confirmedResults = results.map((result) => ({ ...result, assignments: result.assignments.map((a) => ({ ...a, status: 'confirmed' as const })) }));
+    await createShiftConfirmedNotifications({ assignments: confirmedResults.flatMap((r) => r.assignments), projects, profiles });
+    setResults(confirmedResults);
     setDirtyConfirmed({});
+    setNotice(`全${confirmedResults.length}案件を確定し、${confirmedResults.reduce((sum, r) => sum + r.assignments.length, 0)}件のWebアプリ内通知を作成しました。`);
   };
 
   const candidatesFor = (result: AssignmentResult): Candidate[] => profiles
@@ -109,13 +121,14 @@ function AutoAssignContent() {
   return (
     <div>
       <PageHeader title="自動配置" description="自動配置結果を案件カードごとに確認し、現場でそのまま追加・除外・リーダー変更・確定ができます。デモモードでも画面上で編集が反映されます。" actions={<div className="flex flex-wrap gap-2"><Button onClick={run} className="min-h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-slate-900 px-8 text-base shadow-lg shadow-blue-200">自動配置を実行</Button>{results.length > 0 && <Button onClick={confirmAll} variant="secondary" className="min-h-14 rounded-2xl px-8 text-base">全案件を確定</Button>}</div>} />
+      {notice && <div className="mb-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-700 ring-1 ring-blue-100">{notice}</div>}
       {results.length > 0 && <div className="mb-6 grid gap-4 sm:grid-cols-4"><StatCard label="対象案件" value={results.length} /><StatCard label="成功案件" value={ok} tone="green" /><StatCard label="人数不足" value={peopleShortage} tone="orange" /><StatCard label="リーダー不足" value={leaderShortage} tone="red" /></div>}
       {!results.length ? <EmptyState title="配置結果はまだありません" description="ログインやSupabase接続なしで、仮データの勤務可否から自動配置を試せます。" action={<Button onClick={run}>今すぐ実行</Button>} /> : <div className="space-y-6">{results.map((result) => <ResultCard key={result.project.id} result={result} dirtyConfirmed={!!dirtyConfirmed[result.project.id]} staffName={staffName} availability={availability} assignmentCount={assignmentCount} candidates={candidatesFor(result)} onAdd={addStaff} onRemove={removeStaff} onSetLeader={setLeader} onConfirm={confirmProject} />)}</div>}
     </div>
   );
 }
 
-function ResultCard({ result, dirtyConfirmed, staffName, availability, assignmentCount, candidates, onAdd, onRemove, onSetLeader, onConfirm }: { result: AssignmentResult; dirtyConfirmed: boolean; staffName: (id: string) => string; availability: (workDate: string, staffId: string) => AvailabilityStatus | undefined; assignmentCount: (staffId: string) => number; candidates: Candidate[]; onAdd: (projectId: string, staffId: string, asLeader: boolean) => void; onRemove: (projectId: string, staffId: string) => void; onSetLeader: (projectId: string, staffId: string, isLeader: boolean) => void; onConfirm: (projectId: string) => void; }) {
+function ResultCard({ result, dirtyConfirmed, staffName, availability, assignmentCount, candidates, onAdd, onRemove, onSetLeader, onConfirm }: { result: AssignmentResult; dirtyConfirmed: boolean; staffName: (id: string) => string; availability: (workDate: string, staffId: string) => AvailabilityStatus | undefined; assignmentCount: (staffId: string) => number; candidates: Candidate[]; onAdd: (projectId: string, staffId: string, asLeader: boolean) => void; onRemove: (projectId: string, staffId: string) => void; onSetLeader: (projectId: string, staffId: string, isLeader: boolean) => void; onConfirm: (projectId: string) => void | Promise<void>; }) {
   const assignedLeaders = result.assignments.filter((a) => a.is_leader).length;
   const isConfirmed = result.assignments.length > 0 && result.assignments.every((a) => a.status === 'confirmed');
   const shortage = result.warnings.length > 0;

@@ -7,6 +7,7 @@ const nav: BottomNavItem[] = [
   { href: '/staff', label: 'ホーム', icon: '⌂' },
   { href: '/staff/availability', label: '予定提出', icon: '＋' },
   { href: '/staff/shifts', label: 'シフト', icon: '✓' },
+  { href: '/staff/notifications', label: '通知', icon: '🔔' },
   { href: '/staff/calendar', label: 'カレンダー', icon: '□' },
 ];
 
