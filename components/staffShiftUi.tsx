@@ -5,10 +5,44 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { demoStaff } from '@/lib/demo';
+import { buildMonthlyShiftIcs, getConfirmedMonthlyShiftRows, getMonthlyShiftIcsFileName, getMonthKey } from '@/lib/ics';
 import { mockWorkplaces } from '@/lib/mockData';
 import type { Assignment, Project } from '@/lib/types';
 
 export type ShiftRow = Assignment & { projects: Project | null };
+
+export function downloadMonthlyShiftIcs(rows: ShiftRow[], monthKey: string) {
+  const ics = buildMonthlyShiftIcs(rows, monthKey);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = getMonthlyShiftIcsFileName(monthKey);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function MonthlyCalendarDownload({ rows, monthKey = getMonthKey() }: { rows: ShiftRow[]; monthKey?: string }) {
+  const monthlyConfirmed = getConfirmedMonthlyShiftRows(rows, monthKey);
+
+  return (
+    <div className="mb-5 rounded-3xl border border-blue-100 bg-blue-50 p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-5">
+      <div>
+        <p className="text-sm font-black text-blue-700">{monthKey} の確定シフト</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">ダウンロードしたファイルを開くと、Googleカレンダー等にまとめて追加できます</p>
+      </div>
+      <Button
+        className="mt-4 min-h-14 w-full rounded-2xl px-5 text-base shadow-lg shadow-blue-200 sm:mt-0 sm:w-auto"
+        disabled={monthlyConfirmed.length === 0}
+        onClick={() => downloadMonthlyShiftIcs(rows, monthKey)}
+      >
+        今月のシフトをカレンダーに追加
+      </Button>
+    </div>
+  );
+}
 
 export function getGoogleCalendarUrl(row: ShiftRow) {
   const p = row.projects;
