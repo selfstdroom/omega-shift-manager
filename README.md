@@ -83,3 +83,37 @@ npm run build
   - 本番利用前に初期管理者パスワードを必ず変更してください。
 - スタッフログイン: `/staff/login`
   - スタッフは従来どおり Supabase Auth のメールアドレス / パスワードでログイン・登録します。
+
+## Demo mode notes
+
+This branch temporarily disables login enforcement so the UI, screen transitions, and business flow can be reviewed before restoring authentication.
+
+### Changed screens
+
+- `/`: adds direct demo entry points to the admin and staff areas.
+- `/admin`: dashboard-style overview with today/this-week project counts, staff counts, leader counts, and shortage counts.
+- `/admin/projects`: card-based project management view with date, time, location, staffing badges, and leader badges.
+- `/admin/auto-assign`: demo-first auto assignment screen with execution button, result summary, success projects, shortage projects, and assigned staff.
+- `/staff`: app-like staff home showing today shift, next shift, monthly shift count, and quick links.
+- `/staff/calendar`: mobile-friendly monthly calendar with visual shift markers and detail card.
+
+### Temporarily disabled authentication
+
+- `middleware.ts`: `/admin/**` and `/staff/**` redirect enforcement is bypassed in demo mode.
+- `components/AuthGate.tsx`: Supabase Auth `getUser()` and profile role checks are bypassed in demo mode.
+- Existing login pages and login/logout API files remain in place so authentication can be restored later.
+
+### Recommended UI review order
+
+1. Start at `/` and use the two large buttons to enter admin and staff flows.
+2. Review `/admin` for dashboard metrics and navigation.
+3. Review `/admin/projects` for project readability and staffing shortage badges.
+4. Review `/admin/auto-assign` and run the demo assignment.
+5. Review `/staff` on a mobile viewport.
+6. Review `/staff/calendar` and the mobile bottom navigation.
+
+### Demo data behavior
+
+- Supabase is optional for UI review.
+- Mock/demo data is shown by default for the primary demo screens.
+- When Supabase is configured and returns data, admin dashboard and project screens can display real data.
