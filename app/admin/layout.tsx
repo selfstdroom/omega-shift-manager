@@ -1,3 +1,6 @@
 'use client';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
-export default function AdminLayout({ children }: { children: React.ReactNode }) { return <AuthGate allowedRole="admin">{children}</AuthGate>; }
+const nav=[['/admin','ダッシュボード'],['/admin/projects','案件'],['/admin/staff','スタッフ'],['/admin/workplaces','事業所'],['/admin/auto-assign','自動配置']];
+export default function AdminLayout({ children }: { children: React.ReactNode }) {const path=usePathname();return <AuthGate allowedRole="admin"><div className="mx-auto grid min-h-[calc(100vh-57px)] max-w-7xl md:grid-cols-[240px_1fr]"><aside className="hidden border-r border-slate-200 bg-white px-4 py-6 md:block"><div className="mb-6 px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Admin Console</div><nav className="space-y-1">{nav.map(([href,label])=><Link key={href} href={href} className={`block rounded-lg px-3 py-2 text-sm font-medium ${path===href?'bg-blue-50 text-blue-700':'text-slate-600 hover:bg-slate-50 hover:text-slate-950'}`}>{label}</Link>)}</nav></aside><div className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{children}</div></div></AuthGate>; }
