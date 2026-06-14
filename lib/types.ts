@@ -32,6 +32,22 @@ export type Profile = {
   created_at: string;
 };
 
+export type ProjectTemplate = {
+  id: string;
+  company_id: string;
+  workplace_id: string;
+  template_name: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  required_people: number;
+  required_leaders?: number | null;
+  note: string;
+  weekdays: number[];
+  created_at: string;
+};
+
 export type Project = {
   id: string;
   company_id: string;

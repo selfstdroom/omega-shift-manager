@@ -1,4 +1,4 @@
-import type { Assignment, Availability, AvailabilityPeriod, Company, Profile, Project, Workplace } from '@/lib/types';
+import type { Assignment, Availability, AvailabilityPeriod, Company, Profile, Project, ProjectTemplate, Workplace } from '@/lib/types';
 
 const now = '2026-06-13T00:00:00.000Z';
 
@@ -27,6 +27,13 @@ export const mockAvailabilityPeriods: AvailabilityPeriod[] = [
   { id: 'period-month-2026-07', company_id: mockCompany.id, period_type: 'monthly', target_month: '2026-07', week_start_date: null, week_end_date: null, deadline: '2026-06-25T23:59:00', status: 'open', created_at: now },
   { id: 'period-week-2026-06-22', company_id: mockCompany.id, period_type: 'weekly', target_month: null, week_start_date: '2026-06-22', week_end_date: '2026-06-28', deadline: '2026-06-20T23:59:00', status: 'open', created_at: now },
   { id: 'period-week-2026-06-15', company_id: mockCompany.id, period_type: 'weekly', target_month: null, week_start_date: '2026-06-15', week_end_date: '2026-06-21', deadline: '2026-06-13T23:59:00', status: 'closed', created_at: now },
+];
+
+
+export const mockProjectTemplates: ProjectTemplate[] = [
+  { id: 'template-1', company_id: mockCompany.id, workplace_id: 'wp-1', template_name: '平日倉庫フルタイム', title: '倉庫ピッキング', start_time: '09:00', end_time: '17:00', location: '東京倉庫', required_people: 5, required_leaders: 1, note: '毎週 月・水・金の定番案件', weekdays: [1, 3, 5], created_at: now },
+  { id: 'template-2', company_id: mockCompany.id, workplace_id: 'wp-2', template_name: '夜間搬入テンプレート', title: '夜間搬入作業', start_time: '16:00', end_time: '22:00', location: '横浜センター', required_people: 3, required_leaders: 1, note: '火・木の夜間枠', weekdays: [2, 4], created_at: now },
+  { id: 'template-3', company_id: mockCompany.id, workplace_id: 'wp-1', template_name: '週末イベント設営', title: 'イベント設営', start_time: '08:00', end_time: '12:00', location: '幕張', required_people: 4, required_leaders: 2, note: '土日イベント用', weekdays: [0, 6], created_at: now },
 ];
 
 export const mockProjects: Project[] = [
