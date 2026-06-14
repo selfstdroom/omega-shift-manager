@@ -19,43 +19,45 @@ cp .env.example .env.local
 npm run dev
 ```
 
-`.env.local` にSupabaseのURLとanon keyを設定します。
+`.env.local` にSupabaseのURLとanon keyを設定します。管理者セッション署名用に `ADMIN_SESSION_SECRET` も設定してください。
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+ADMIN_SESSION_SECRET=replace-with-long-random-secret
 ```
 
-未設定の場合、各画面に「Supabase未接続」のエラーを表示します。
+未設定の場合、ログイン画面または認証ゲートに「Supabaseに接続できません」というエラーを表示します。
 
 ## Supabase設定手順
 
 1. Supabaseプロジェクトを作成します。
 2. Supabase Dashboard > SQL Editor を開き、`supabase/schema.sql` の内容を貼り付けて **Run** を実行します。
    - `schema.sql` は既存のテーブル・enum・関連関数を削除してから再作成するため、再実行すると既存データは削除されます。
+   - 管理者ログイン用の `admin_accounts` テーブルと、bcryptハッシュを `pgcrypto` の `crypt` で照合する `verify_admin_login` 関数も作成します。
 3. 続けて SQL Editor の新しいクエリに `supabase/seed.sql` の内容を貼り付けて **Run** を実行します。
-   - 初期データとして、会社「オメガテクノ」、事業所「本社」「茨城営業所」、管理者1名、スタッフ10名（うちリーダー3名）、案件5件、勤務可能日データを投入します。
-   - `profiles.id` は `auth.users(id)` と連携するため、seedではデモ用の認証ユーザーも作成します。
-4. seedで作成されるデモユーザーは次の認証情報でログインできます。
+   - 初期データとして会社、事業所、デモ用プロフィール、案件、勤務可能日、初期管理者を投入します。
+   - 初期管理者のパスワードは `admin_accounts.password_hash` にbcryptハッシュとして保存され、平文パスワードはDBに保存されません。
 
-| 種別 | メールアドレス | パスワード |
-| --- | --- | --- |
-| 管理者 | `admin@omega-techno.example` | `password123` |
-| スタッフ | `staff01@omega-techno.example` 〜 `staff10@omega-techno.example` | `password123` |
+## ログインURLと初期認証情報
 
-本番用の管理者を作成する場合は、Authenticationでユーザーを作成後、該当する `auth.users.id` を使って `profiles` に以下のようなレコードを追加します。
-
-```sql
-insert into public.profiles (id, company_id, workplace_id, name, role, staff_role)
-values ('AUTH_USER_ID', 'COMPANY_ID', 'WORKPLACE_ID', '管理者', 'admin', 'leader');
-```
+- 管理者ログインURL: `/admin/login`
+  - ログインID: `admin`
+  - 初期パスワード: `omega1234`
+  - 管理者はメールアドレスではなく、発行されたログインIDとパスワードでログインします。
+  - **本番利用前に必ず初期管理者パスワードを変更してください。**
+- スタッフログインURL: `/staff/login`
+  - スタッフはSupabase Authのメールアドレス / パスワードでログインします。
+- スタッフ新規登録URL: `/staff/signup`
+  - 名前、メールアドレス、パスワード、電話番号、所属事業所を入力すると、Supabase Authユーザーと `profiles` レコードを作成します。
 
 ## 認証設定手順
 
 1. Supabase Dashboard > Authentication > Providers で Email provider を有効にします。
 2. メール確認を必須にする場合は、登録後に確認メールを開いてからログインしてください。
-3. スタッフは `/login` の新規登録からメール/パスワード登録できます。登録時は最初の `workplaces` に紐づく `staff` として `profiles` を作成します。
-4. 管理者は `/admin/staff` から `staff_role` を `staff` / `leader` に変更できます。
+3. `/admin/**` は管理者セッションcookieがない場合 `/admin/login` へリダイレクトされます。
+4. `/staff/**` はスタッフログイン後に作成されるセッションcookieがない場合 `/staff/login` へリダイレクトされ、画面側でもSupabase Authセッションを確認します。
+5. 画面確認用のデモルートとして `/demo/admin` と `/demo/staff` を残しています。通常の `/admin/**` と `/staff/**` はログイン必須です。
 
 ## 自動配置ルール
 
@@ -75,46 +77,11 @@ npm run build
 ```
 
 
-## ログイン方式
-
-- 管理者ログイン: `/admin/login`
-  - 初期管理者ID: `admin`
-  - 初期管理者パスワード: `omega1234`
-  - 管理者はメールアドレスではなく、発行されたログインIDとパスワードでログインします。
-  - 本番利用前に初期管理者パスワードを必ず変更してください。
-- スタッフログイン: `/staff/login`
-  - スタッフは従来どおり Supabase Auth のメールアドレス / パスワードでログイン・登録します。
-
 ## Demo mode notes
 
-This branch temporarily disables login enforcement so the UI, screen transitions, and business flow can be reviewed before restoring authentication.
+通常の `/admin/**` と `/staff/**` はログイン必須です。開発・画面確認用に、認証ミドルウェアの対象外となるデモルートを残しています。
 
-### Changed screens
+- `/demo/admin`: 管理者ダッシュボードUIをデモデータで確認
+- `/demo/staff`: スタッフホームUIをデモデータで確認
 
-- `/`: adds direct demo entry points to the admin and staff areas.
-- `/admin`: dashboard-style overview with today/this-week project counts, staff counts, leader counts, and shortage counts.
-- `/admin/projects`: card-based project management view with date, time, location, staffing badges, and leader badges.
-- `/admin/auto-assign`: demo-first auto assignment screen with execution button, result summary, success projects, shortage projects, and assigned staff.
-- `/staff`: app-like staff home showing today shift, next shift, monthly shift count, and quick links.
-- `/staff/calendar`: mobile-friendly monthly calendar with visual shift markers and detail card.
-
-### Temporarily disabled authentication
-
-- `middleware.ts`: `/admin/**` and `/staff/**` redirect enforcement is bypassed in demo mode.
-- `components/AuthGate.tsx`: Supabase Auth `getUser()` and profile role checks are bypassed in demo mode.
-- Existing login pages and login/logout API files remain in place so authentication can be restored later.
-
-### Recommended UI review order
-
-1. Start at `/` and use the two large buttons to enter admin and staff flows.
-2. Review `/admin` for dashboard metrics and navigation.
-3. Review `/admin/projects` for project readability and staffing shortage badges.
-4. Review `/admin/auto-assign` and run the demo assignment.
-5. Review `/staff` on a mobile viewport.
-6. Review `/staff/calendar` and the mobile bottom navigation.
-
-### Demo data behavior
-
-- Supabase is optional for UI review.
-- Mock/demo data is shown by default for the primary demo screens.
-- When Supabase is configured and returns data, admin dashboard and project screens can display real data.
+Mock/demo data is shown by default for the primary demo screens. When Supabase is configured and returns data, admin dashboard and project screens can display real data.

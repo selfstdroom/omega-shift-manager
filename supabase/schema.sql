@@ -63,3 +63,21 @@ create policy "demo_all_availabilities" on public.availabilities for all using (
 create policy "demo_all_assignment_runs" on public.assignment_runs for all using (true) with check (true);
 create policy "demo_all_assignments" on public.assignments for all using (true) with check (true);
 create policy "demo_all_notifications" on public.notifications for all using (true) with check (true);
+
+-- Production admin login verifier. Uses pgcrypto bcrypt (crypt) comparison on the database server
+-- and returns only non-secret account fields to the application server.
+create or replace function public.verify_admin_login(input_login_id text, input_password text)
+returns table (id text, company_id text, login_id text, name text)
+language sql
+security definer
+set search_path = public
+as $$
+  select a.id, a.company_id, a.login_id, a.name
+  from public.admin_accounts a
+  where a.login_id = input_login_id
+    and a.password_hash = crypt(input_password, a.password_hash)
+  limit 1;
+$$;
+
+revoke all on function public.verify_admin_login(text, text) from public;
+grant execute on function public.verify_admin_login(text, text) to anon, authenticated;
