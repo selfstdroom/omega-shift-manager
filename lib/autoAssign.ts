@@ -1,9 +1,9 @@
-import type { Assignment, AssignmentResult, AutoAssignInput, AvailabilityStatus, Profile, Project } from '@/lib/types';
+import type { Assignment, AssignmentResult, AutoAssignInput, AvailabilityStatus, Profile, ProjectWorkDay } from '@/lib/types';
 
-const overlaps = (a: Project, b: Project) =>
+const overlaps = (a: ProjectWorkDay, b: ProjectWorkDay) =>
   a.work_date === b.work_date && a.start_time < b.end_time && b.start_time < a.end_time;
 
-const requiredLeaderCount = (project: Project) => Math.max(1, project.required_leaders ?? 0);
+const requiredLeaderCount = (project: ProjectWorkDay) => Math.max(1, project.required_leaders ?? 0);
 
 export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
   const runId = input.runId ?? `run-${Date.now()}`;
@@ -13,7 +13,7 @@ export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
     previousCounts.set(assignment.staff_id, (previousCounts.get(assignment.staff_id) ?? 0) + 1);
   });
 
-  const assignedProjectsByStaff = new Map<string, Project[]>();
+  const assignedDaysByStaff = new Map<string, ProjectWorkDay[]>();
 
   return [...input.projects]
     .filter((project) => project.company_id === input.companyId)
@@ -35,7 +35,7 @@ export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
           .filter((profile) => profile.role === 'staff' && profile.company_id === input.companyId)
           .filter((profile) => availabilityByStaff.get(profile.id) === status)
           .filter((profile) =>
-            !(assignedProjectsByStaff.get(profile.id) ?? []).some((assignedProject) => overlaps(project, assignedProject)),
+            !(assignedDaysByStaff.get(profile.id) ?? []).some((assignedDay) => overlaps(project, assignedDay)),
           )
           .sort(sortByPastCount);
 
@@ -93,7 +93,7 @@ export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
 
       picked.forEach((staff) => {
         previousCounts.set(staff.id, (previousCounts.get(staff.id) ?? 0) + 1);
-        assignedProjectsByStaff.set(staff.id, [...(assignedProjectsByStaff.get(staff.id) ?? []), project]);
+        assignedDaysByStaff.set(staff.id, [...(assignedDaysByStaff.get(staff.id) ?? []), project]);
       });
 
       const assignedLeaderCount = assignments.filter((assignment) => assignment.is_leader).length;

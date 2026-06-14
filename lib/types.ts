@@ -5,6 +5,7 @@ export type AvailabilityPeriodType = 'monthly' | 'weekly';
 export type AvailabilityPeriodStatus = 'open' | 'closed';
 export type AssignmentStatus = 'draft' | 'confirmed';
 export type NotificationType = 'shift_confirmed' | 'system';
+export type ProjectType = 'single' | 'recurring';
 
 export type Company = {
   id: string;
@@ -53,6 +54,7 @@ export type Project = {
   company_id: string;
   workplace_id: string;
   title: string;
+  project_type: ProjectType;
   work_date: string;
   start_time: string;
   end_time: string;
@@ -61,6 +63,26 @@ export type Project = {
   required_leaders?: number | null;
   note: string;
   created_at: string;
+};
+
+export type ProjectDay = {
+  id: string;
+  project_id: string;
+  work_date: string;
+  start_time: string;
+  end_time: string;
+  required_people: number;
+  required_leaders?: number | null;
+  note: string;
+  created_at: string;
+};
+
+export type ProjectWorkDay = ProjectDay & {
+  company_id: string;
+  workplace_id: string;
+  title: string;
+  location: string;
+  project_type: ProjectType;
 };
 
 export type AvailabilityPeriod = {
@@ -106,7 +128,7 @@ export type Assignment = {
 export type AssignmentWarning = 'リーダー不足' | '人数不足';
 
 export type AssignmentResult = {
-  project: Project;
+  project: ProjectWorkDay;
   assignments: Assignment[];
   warnings: AssignmentWarning[];
 };
@@ -114,7 +136,7 @@ export type AssignmentResult = {
 export type AutoAssignInput = {
   companyId: string;
   executedBy: string;
-  projects: Project[];
+  projects: ProjectWorkDay[];
   profiles: Profile[];
   availabilities: Availability[];
   previousAssignments?: Assignment[];

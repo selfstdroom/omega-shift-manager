@@ -1,4 +1,4 @@
-import type { Assignment, Availability, AvailabilityPeriod, Company, Profile, Project, ProjectTemplate, Workplace } from '@/lib/types';
+import type { Assignment, Availability, AvailabilityPeriod, Company, Profile, Project, ProjectDay, ProjectTemplate, Workplace } from '@/lib/types';
 
 const now = '2026-06-13T00:00:00.000Z';
 
@@ -37,10 +37,23 @@ export const mockProjectTemplates: ProjectTemplate[] = [
 ];
 
 export const mockProjects: Project[] = [
-  { id: 'project-1', company_id: mockCompany.id, workplace_id: 'wp-1', title: '倉庫棚卸サポート', work_date: '2026-06-14', start_time: '09:00', end_time: '17:00', location: '東京倉庫', required_people: 3, required_leaders: 1, note: 'available優先・conditional補完のデモ', created_at: now },
-  { id: 'project-2', company_id: mockCompany.id, workplace_id: 'wp-2', title: '夜間搬入作業', work_date: '2026-06-16', start_time: '16:00', end_time: '22:00', location: '横浜センター', required_people: 2, required_leaders: 1, note: 'project-1と時間が重なるため同一スタッフは除外', created_at: now },
-  { id: 'project-3', company_id: mockCompany.id, workplace_id: 'wp-1', title: 'イベント設営', work_date: '2026-06-20', start_time: '08:00', end_time: '12:00', location: '幕張', required_people: 4, required_leaders: 2, note: 'リーダー不足・人数不足警告のデモ', created_at: now },
+  { id: 'project-1', project_type: 'single', company_id: mockCompany.id, workplace_id: 'wp-1', title: '倉庫棚卸サポート', work_date: '2026-06-14', start_time: '09:00', end_time: '17:00', location: '東京倉庫', required_people: 3, required_leaders: 1, note: 'available優先・conditional補完のデモ', created_at: now },
+  { id: 'project-2', project_type: 'single', company_id: mockCompany.id, workplace_id: 'wp-2', title: '夜間搬入作業', work_date: '2026-06-16', start_time: '16:00', end_time: '22:00', location: '横浜センター', required_people: 2, required_leaders: 1, note: 'project-1と時間が重なるため同一スタッフは除外', created_at: now },
+  { id: 'project-3', project_type: 'single', company_id: mockCompany.id, workplace_id: 'wp-1', title: 'イベント設営', work_date: '2026-06-20', start_time: '08:00', end_time: '12:00', location: '幕張', required_people: 4, required_leaders: 2, note: 'リーダー不足・人数不足警告のデモ', created_at: now },
+  { id: 'project-4', project_type: 'recurring', company_id: mockCompany.id, workplace_id: 'wp-1', title: '商業施設キャンペーン運営', work_date: '2026-06-18', start_time: '10:00', end_time: '18:00', location: '新宿モール', required_people: 4, required_leaders: 1, note: '継続案件のデモ。日別に必要人数を調整します。', created_at: now },
 ];
+
+export const mockProjectDays: ProjectDay[] = [
+  ...mockProjects.filter((project) => project.project_type === 'single').map((project) => ({ id: project.id, project_id: project.id, work_date: project.work_date, start_time: project.start_time, end_time: project.end_time, required_people: project.required_people, required_leaders: project.required_leaders, note: project.note, created_at: project.created_at })),
+  { id: 'project-day-4-1', project_id: 'project-4', work_date: '2026-06-18', start_time: '10:00', end_time: '18:00', required_people: 4, required_leaders: 1, note: '初日研修あり', created_at: now },
+  { id: 'project-day-4-2', project_id: 'project-4', work_date: '2026-06-19', start_time: '10:00', end_time: '18:00', required_people: 5, required_leaders: 1, note: '', created_at: now },
+  { id: 'project-day-4-3', project_id: 'project-4', work_date: '2026-06-20', start_time: '09:00', end_time: '17:00', required_people: 6, required_leaders: 2, note: '週末増員', created_at: now },
+];
+
+export const mockProjectWorkDays = mockProjectDays.map((day) => {
+  const project = mockProjects.find((item) => item.id === day.project_id) ?? mockProjects[0];
+  return { ...day, company_id: project.company_id, workplace_id: project.workplace_id, title: project.title, location: project.location, project_type: project.project_type };
+});
 
 export const mockAvailabilities: Availability[] = [
   { id: 'av-1', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-14', status: 'available', note: '', created_at: now },
@@ -56,6 +69,10 @@ export const mockAvailabilities: Availability[] = [
   { id: 'av-11', company_id: mockCompany.id, staff_id: 'staff-3', work_date: '2026-06-20', status: 'unavailable', note: '休暇', created_at: now },
   { id: 'av-12', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-21', status: 'unavailable', note: '', created_at: now },
   { id: 'av-13', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-22', status: 'conditional', note: '午前のみ可能', created_at: now },
+  { id: 'av-14', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-18', status: 'available', note: '', created_at: now },
+  { id: 'av-15', company_id: mockCompany.id, staff_id: 'staff-2', work_date: '2026-06-18', status: 'available', note: '', created_at: now },
+  { id: 'av-16', company_id: mockCompany.id, staff_id: 'staff-3', work_date: '2026-06-19', status: 'available', note: '', created_at: now },
+  { id: 'av-17', company_id: mockCompany.id, staff_id: 'staff-4', work_date: '2026-06-20', status: 'conditional', note: '午後なら可', created_at: now },
 ];
 
 export const mockPreviousAssignments: Assignment[] = [

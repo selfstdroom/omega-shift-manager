@@ -1,6 +1,6 @@
 import { autoAssign } from '@/lib/autoAssign';
-import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects } from '@/lib/mockData';
-import type { Assignment, Profile, Project } from '@/lib/types';
+import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects, mockProjectWorkDays } from '@/lib/mockData';
+import type { Assignment, Profile, Project, ProjectWorkDay } from '@/lib/types';
 
 export const DEMO_USER = {
   id: 'staff-1',
@@ -14,7 +14,7 @@ export const demoStaff: Profile = mockProfiles.find((p) => p.role === 'staff') ?
 export const getDemoAssignmentResults = () => autoAssign({
   companyId: mockCompany.id,
   executedBy: demoAdmin.id,
-  projects: mockProjects,
+  projects: mockProjectWorkDays,
   profiles: mockProfiles,
   availabilities: mockAvailabilities,
   previousAssignments: mockPreviousAssignments,
@@ -23,7 +23,7 @@ export const getDemoAssignmentResults = () => autoAssign({
 
 export const getDemoAssignments = (): Assignment[] => getDemoAssignmentResults().flatMap((r) => r.assignments);
 
-export const getProjectFill = (project: Project, assignments = getDemoAssignments()) => {
+export const getProjectFill = (project: Project | ProjectWorkDay, assignments = getDemoAssignments()) => {
   const projectAssignments = assignments.filter((a) => a.project_id === project.id);
   const leaders = projectAssignments.filter((a) => a.is_leader).length;
   const requiredLeaders = Math.max(1, project.required_leaders ?? 0);
