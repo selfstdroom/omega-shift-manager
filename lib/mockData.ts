@@ -23,9 +23,9 @@ export const mockProfiles: Profile[] = [
 ];
 
 export const mockProjects: Project[] = [
-  { id: 'project-1', company_id: mockCompany.id, workplace_id: 'wp-1', title: '倉庫棚卸サポート', work_date: '2026-07-01', start_time: '09:00', end_time: '17:00', location: '東京倉庫', required_people: 3, required_leaders: 1, note: 'available優先・conditional補完のデモ', created_at: now },
-  { id: 'project-2', company_id: mockCompany.id, workplace_id: 'wp-2', title: '夜間搬入作業', work_date: '2026-07-01', start_time: '16:00', end_time: '22:00', location: '横浜センター', required_people: 2, required_leaders: 1, note: 'project-1と時間が重なるため同一スタッフは除外', created_at: now },
-  { id: 'project-3', company_id: mockCompany.id, workplace_id: 'wp-1', title: 'イベント設営', work_date: '2026-07-02', start_time: '08:00', end_time: '12:00', location: '幕張', required_people: 4, required_leaders: 2, note: 'リーダー不足・人数不足警告のデモ', created_at: now },
+  { id: 'project-1', company_id: mockCompany.id, workplace_id: 'wp-1', title: '倉庫棚卸サポート', work_date: '2026-06-14', start_time: '09:00', end_time: '17:00', location: '東京倉庫', required_people: 3, required_leaders: 1, note: 'available優先・conditional補完のデモ', created_at: now },
+  { id: 'project-2', company_id: mockCompany.id, workplace_id: 'wp-2', title: '夜間搬入作業', work_date: '2026-06-16', start_time: '16:00', end_time: '22:00', location: '横浜センター', required_people: 2, required_leaders: 1, note: 'project-1と時間が重なるため同一スタッフは除外', created_at: now },
+  { id: 'project-3', company_id: mockCompany.id, workplace_id: 'wp-1', title: 'イベント設営', work_date: '2026-06-20', start_time: '08:00', end_time: '12:00', location: '幕張', required_people: 4, required_leaders: 2, note: 'リーダー不足・人数不足警告のデモ', created_at: now },
 ];
 
 export const mockAvailabilities: Availability[] = [
