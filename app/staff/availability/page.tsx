@@ -122,7 +122,7 @@ export default function Page() {
       </Card>
       {panelPosition && (
         <div className="fixed inset-0 z-50 pointer-events-none">
-          <div className="absolute w-[calc(100vw-24px)] max-w-[344px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/70 pointer-events-auto" style={{ top: panelPosition.top, left: panelPosition.left }}>
+          <div className="fixed bottom-0 left-0 right-0 w-full rounded-t-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/70 pointer-events-auto sm:absolute sm:w-[calc(100vw-24px)] sm:max-w-[344px] sm:rounded-3xl" style={typeof window !== 'undefined' && window.innerWidth >= 640 ? { top: panelPosition.top, left: panelPosition.left } : undefined}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-bold text-slate-400">選択中の日付</p>
