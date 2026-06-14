@@ -138,7 +138,7 @@ export default function Page() {
   const editorTitle = editorMode === 'create' ? '案件を追加' : editorMode === 'duplicate' ? '案件を複製' : editing?.title ?? '';
 
   return <div>
-    <PageHeader title="案件管理" description="案件を素早く登録し、カードを開いて編集・複製・削除・自動配置まで進めます。" actions={<Button onClick={createProject} className="min-h-12 rounded-2xl">＋ 案件を追加</Button>} />
+    <PageHeader title="案件管理" description="案件を素早く登録し、カードを開いて編集・複製・削除・自動配置まで進めます。" actions={<><Link href="/admin/calendar"><Button variant="secondary" className="min-h-12 rounded-2xl">カレンダーへ</Button></Link><Button onClick={createProject} className="min-h-12 rounded-2xl">＋ 案件を追加</Button></>} />
     {msg && <p className="mb-3 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">{msg}</p>}
     <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(['未配置', '配置OK', '人数不足', 'リーダー不足'] as ProjectState[]).map((s) => <div key={s} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><p className="text-xs font-bold text-slate-400">{s}</p><p className="mt-1 text-3xl font-black text-slate-950">{stats[s]}</p></div>)}</div>
     <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_220px]"><Input placeholder="案件名・場所・日付で検索" value={q} onChange={(e) => setQ(e.target.value)} /><Select value={wp} onChange={(e) => setWp(e.target.value)}><option value="all">全事業所</option>{workplaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select></div>
