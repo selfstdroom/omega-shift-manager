@@ -77,15 +77,16 @@ begin
     (project_ids[5], company_id, hq_id, 'オフィス移転補助', current_date + 5, '09:30', '18:30', '丸の内オフィス', 6, 2, '台車使用');
 
   for i in 1..array_length(staff_ids, 1) loop
-    insert into public.availabilities (company_id, project_id, staff_id, status, note)
-    select company_id, p, staff_ids[i],
+    insert into public.availabilities (company_id, staff_id, work_date, status, note)
+    select company_id, staff_ids[i], p.work_date,
       case
         when (i + ordinality)::int % 5 = 0 then 'unavailable'::public.availability_status
         when (i + ordinality)::int % 3 = 0 then 'conditional'::public.availability_status
         else 'available'::public.availability_status
       end,
       case when (i + ordinality)::int % 3 = 0 then '時間帯は相談可能' else '' end
-    from unnest(project_ids) with ordinality as project_list(p, ordinality);
+    from public.projects p
+    join unnest(project_ids) with ordinality as project_list(project_id, ordinality) on project_list.project_id = p.id;
   end loop;
 
   insert into public.assignment_runs (id, company_id, executed_by) values (run_id, company_id, admin_id);

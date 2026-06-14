@@ -29,17 +29,19 @@ export const mockProjects: Project[] = [
 ];
 
 export const mockAvailabilities: Availability[] = [
-  { id: 'av-1', company_id: mockCompany.id, project_id: 'project-1', staff_id: 'staff-1', status: 'available', note: '', created_at: now },
-  { id: 'av-2', company_id: mockCompany.id, project_id: 'project-1', staff_id: 'staff-2', status: 'available', note: '', created_at: now },
-  { id: 'av-3', company_id: mockCompany.id, project_id: 'project-1', staff_id: 'staff-4', status: 'conditional', note: '午前に別予定あり', created_at: now },
-  { id: 'av-4', company_id: mockCompany.id, project_id: 'project-1', staff_id: 'staff-5', status: 'unavailable', note: '終日不可', created_at: now },
-  { id: 'av-5', company_id: mockCompany.id, project_id: 'project-2', staff_id: 'staff-1', status: 'available', note: 'project-1配置済みなら重複除外', created_at: now },
-  { id: 'av-6', company_id: mockCompany.id, project_id: 'project-2', staff_id: 'staff-2', status: 'available', note: 'project-1配置済みなら重複除外', created_at: now },
-  { id: 'av-7', company_id: mockCompany.id, project_id: 'project-2', staff_id: 'staff-3', status: 'available', note: '', created_at: now },
-  { id: 'av-8', company_id: mockCompany.id, project_id: 'project-2', staff_id: 'staff-5', status: 'available', note: '', created_at: now },
-  { id: 'av-9', company_id: mockCompany.id, project_id: 'project-3', staff_id: 'staff-1', status: 'available', note: '', created_at: now },
-  { id: 'av-10', company_id: mockCompany.id, project_id: 'project-3', staff_id: 'staff-2', status: 'conditional', note: '午後予定あり', created_at: now },
-  { id: 'av-11', company_id: mockCompany.id, project_id: 'project-3', staff_id: 'staff-3', status: 'unavailable', note: '休暇', created_at: now },
+  { id: 'av-1', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-14', status: 'available', note: '', created_at: now },
+  { id: 'av-2', company_id: mockCompany.id, staff_id: 'staff-2', work_date: '2026-06-14', status: 'available', note: '', created_at: now },
+  { id: 'av-3', company_id: mockCompany.id, staff_id: 'staff-4', work_date: '2026-06-14', status: 'conditional', note: '午前に別予定あり', created_at: now },
+  { id: 'av-4', company_id: mockCompany.id, staff_id: 'staff-5', work_date: '2026-06-14', status: 'unavailable', note: '終日不可', created_at: now },
+  { id: 'av-5', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-16', status: 'available', note: '', created_at: now },
+  { id: 'av-6', company_id: mockCompany.id, staff_id: 'staff-2', work_date: '2026-06-16', status: 'available', note: '', created_at: now },
+  { id: 'av-7', company_id: mockCompany.id, staff_id: 'staff-3', work_date: '2026-06-16', status: 'available', note: '', created_at: now },
+  { id: 'av-8', company_id: mockCompany.id, staff_id: 'staff-5', work_date: '2026-06-16', status: 'available', note: '', created_at: now },
+  { id: 'av-9', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-20', status: 'available', note: '', created_at: now },
+  { id: 'av-10', company_id: mockCompany.id, staff_id: 'staff-2', work_date: '2026-06-20', status: 'conditional', note: '午後予定あり', created_at: now },
+  { id: 'av-11', company_id: mockCompany.id, staff_id: 'staff-3', work_date: '2026-06-20', status: 'unavailable', note: '休暇', created_at: now },
+  { id: 'av-12', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-21', status: 'unavailable', note: '', created_at: now },
+  { id: 'av-13', company_id: mockCompany.id, staff_id: 'staff-1', work_date: '2026-06-22', status: 'conditional', note: '午前のみ可能', created_at: now },
 ];
 
 export const mockPreviousAssignments: Assignment[] = [

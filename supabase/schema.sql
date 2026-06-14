@@ -76,12 +76,12 @@ create table public.projects (
 create table public.availabilities (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
-  project_id uuid not null references public.projects(id) on delete cascade,
   staff_id uuid not null references public.profiles(id) on delete cascade,
+  work_date date not null,
   status public.availability_status not null default 'unavailable',
   note text not null default '',
   created_at timestamptz not null default now(),
-  unique (project_id, staff_id)
+  unique (staff_id, work_date)
 );
 
 create table public.assignment_runs (
@@ -103,7 +103,7 @@ create table public.assignments (
   unique (run_id, project_id, staff_id)
 );
 
-create index availabilities_project_status_idx on public.availabilities(project_id, status);
+create index availabilities_work_date_status_idx on public.availabilities(company_id, work_date, status);
 create index assignments_staff_idx on public.assignments(staff_id);
 create index projects_company_date_idx on public.projects(company_id, work_date, start_time);
 create index admin_accounts_login_id_idx on public.admin_accounts(login_id);
