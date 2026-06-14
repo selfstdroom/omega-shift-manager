@@ -21,7 +21,7 @@ export function autoAssign(input: AutoAssignInput): AssignmentResult[] {
     .map((project) => {
       const availabilityByStaff = new Map(
         input.availabilities
-          .filter((availability) => availability.project_id === project.id && availability.status !== 'unavailable')
+          .filter((availability) => availability.company_id === input.companyId && availability.work_date === project.work_date && availability.status !== 'unavailable')
           .map((availability) => [availability.staff_id, availability.status]),
       );
 

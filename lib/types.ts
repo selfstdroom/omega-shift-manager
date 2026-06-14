@@ -46,8 +46,8 @@ export type Project = {
 export type Availability = {
   id: string;
   company_id: string;
-  project_id: string;
   staff_id: string;
+  work_date: string;
   status: AvailabilityStatus;
   note: string;
   created_at: string;
