@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
@@ -120,7 +121,7 @@ function AutoAssignContent() {
 
   return (
     <div>
-      <PageHeader title="自動配置" description="自動配置結果を案件カードごとに確認し、現場でそのまま追加・除外・リーダー変更・確定ができます。デモモードでも画面上で編集が反映されます。" actions={<div className="flex flex-wrap gap-2"><Button onClick={run} className="min-h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-slate-900 px-8 text-base shadow-lg shadow-blue-200">自動配置を実行</Button>{results.length > 0 && <Button onClick={confirmAll} variant="secondary" className="min-h-14 rounded-2xl px-8 text-base">全案件を確定</Button>}</div>} />
+      <PageHeader title="自動配置" description="自動配置結果を案件カードごとに確認し、現場でそのまま追加・除外・リーダー変更・確定ができます。デモモードでも画面上で編集が反映されます。" actions={<div className="flex flex-wrap gap-2"><Link href="/admin/calendar"><Button variant="secondary" className="min-h-14 rounded-2xl px-8 text-base">カレンダーへ</Button></Link><Button onClick={run} className="min-h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-slate-900 px-8 text-base shadow-lg shadow-blue-200">自動配置を実行</Button>{results.length > 0 && <Button onClick={confirmAll} variant="secondary" className="min-h-14 rounded-2xl px-8 text-base">全案件を確定</Button>}</div>} />
       {notice && <div className="mb-4 rounded-2xl bg-blue-50 p-4 text-sm font-bold text-blue-700 ring-1 ring-blue-100">{notice}</div>}
       {results.length > 0 && <div className="mb-6 grid gap-4 sm:grid-cols-4"><StatCard label="対象案件" value={results.length} /><StatCard label="成功案件" value={ok} tone="green" /><StatCard label="人数不足" value={peopleShortage} tone="orange" /><StatCard label="リーダー不足" value={leaderShortage} tone="red" /></div>}
       {!results.length ? <EmptyState title="配置結果はまだありません" description="ログインやSupabase接続なしで、仮データの勤務可否から自動配置を試せます。" action={<Button onClick={run}>今すぐ実行</Button>} /> : <div className="space-y-6">{results.map((result) => <ResultCard key={result.project.id} result={result} dirtyConfirmed={!!dirtyConfirmed[result.project.id]} staffName={staffName} availability={availability} assignmentCount={assignmentCount} candidates={candidatesFor(result)} onAdd={addStaff} onRemove={removeStaff} onSetLeader={setLeader} onConfirm={confirmProject} />)}</div>}
