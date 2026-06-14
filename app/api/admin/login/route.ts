@@ -4,6 +4,8 @@ import { getSupabaseServerClient } from '@/lib/supabaseServer';
 
 type AdminAccount = { id: string; company_id: string; login_id: string; password_hash: string; name: string };
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   const { login_id, password } = await request.json();
   if (!login_id || !password) return NextResponse.json({ error: 'ログインIDとパスワードを入力してください。' }, { status: 400 });
