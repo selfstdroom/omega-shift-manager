@@ -3,8 +3,8 @@ import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles,
 import type { Assignment, Profile, Project } from '@/lib/types';
 
 export const DEMO_USER = {
-  id: 'demo-user',
-  name: 'デモスタッフ',
+  id: 'staff-1',
+  name: '佐藤 リーダー',
   role: 'staff',
 } as const;
 
