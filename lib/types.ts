@@ -25,6 +25,7 @@ export type Profile = {
   role: UserRole;
   staff_role: StaffRole;
   phone: string;
+  note?: string | null;
   created_at: string;
 };
 
