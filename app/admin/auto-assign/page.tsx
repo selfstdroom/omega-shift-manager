@@ -11,23 +11,23 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { autoAssign } from '@/lib/autoAssign';
 import { demoAdmin } from '@/lib/demo';
-import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects } from '@/lib/mockData';
+import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects, mockProjectWorkDays } from '@/lib/mockData';
 import { listAvailabilities } from '@/lib/repositories/availabilityRepository';
 import { listAssignments, runAndSaveAutoAssign, saveAssignment, deleteAssignment, confirmAssignments } from '@/lib/repositories/assignmentRepository';
 import { listProfiles } from '@/lib/repositories/staffRepository';
-import { listProjects } from '@/lib/repositories/projectRepository';
+import { listProjectDays, listProjects } from '@/lib/repositories/projectRepository';
 import { createShiftConfirmedNotifications } from '@/lib/notifications';
-import type { Assignment, AssignmentResult, AvailabilityStatus, Profile, Project } from '@/lib/types';
+import type { Assignment, AssignmentResult, AvailabilityStatus, Profile, Project, ProjectWorkDay } from '@/lib/types';
 
 type Candidate = {
   profile: Profile;
   availability: AvailabilityStatus;
-  conflictProjects: Project[];
+  conflictProjects: ProjectWorkDay[];
   assignmentCount: number;
 };
 
-const requiredLeaders = (project: Project) => Math.max(1, project.required_leaders ?? 0);
-const overlaps = (a: Project, b: Project) => a.work_date === b.work_date && a.start_time < b.end_time && b.start_time < a.end_time;
+const requiredLeaders = (project: ProjectWorkDay) => Math.max(1, project.required_leaders ?? 0);
+const overlaps = (a: ProjectWorkDay, b: ProjectWorkDay) => a.work_date === b.work_date && a.start_time < b.end_time && b.start_time < a.end_time;
 
 export default function AutoAssignPage() {
   return (
@@ -43,11 +43,12 @@ function AutoAssignContent() {
   const savedProjects = typeof window === 'undefined' ? null : window.localStorage.getItem('omega-demo-projects');
   const savedStaff = typeof window === 'undefined' ? null : window.localStorage.getItem('omega-demo-staff');
   const projects = useMemo(() => {
-    const base = savedProjects ? (JSON.parse(savedProjects) as Project[]) : mockProjects;
-    return projectId ? base.filter((p) => p.id === projectId) : base;
+    const saved = savedProjects ? (JSON.parse(savedProjects) as Project[]) : mockProjects;
+    const base = mockProjectWorkDays.filter((day) => saved.some((project) => project.id === day.project_id));
+    return projectId ? base.filter((p) => p.id === projectId || p.project_id === projectId) : base;
   }, [projectId, savedProjects]);
   const profiles = useMemo(() => (savedStaff ? [mockProfiles.find((p) => p.role === 'admin') ?? mockProfiles[0], ...(JSON.parse(savedStaff) as Profile[])] : mockProfiles), [savedStaff]);
-  const [liveProjects, setLiveProjects] = useState<Project[]>(projects);
+  const [liveProjects, setLiveProjects] = useState<ProjectWorkDay[]>(projects);
   const [liveProfiles, setLiveProfiles] = useState<Profile[]>(profiles);
   const [liveAvailabilities, setLiveAvailabilities] = useState(mockAvailabilities);
   const [previousAssignments, setPreviousAssignments] = useState<Assignment[]>(mockPreviousAssignments);
@@ -56,8 +57,9 @@ function AutoAssignContent() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    Promise.all([listProjects(), listProfiles(), listAvailabilities(), listAssignments()]).then(([ps, prs, avs, as]) => {
-      setLiveProjects(projectId ? ps.filter((p) => p.id === projectId) : ps);
+    Promise.all([listProjects(), listProjectDays(), listProfiles(), listAvailabilities(), listAssignments()]).then(([ps, days, prs, avs, as]) => {
+      const workDays = days.map((day) => { const project = ps.find((p) => p.id === day.project_id) ?? ps[0]; return { ...day, company_id: project.company_id, workplace_id: project.workplace_id, title: project.title, location: project.location, project_type: project.project_type }; });
+      setLiveProjects(projectId ? workDays.filter((p) => p.id === projectId || p.project_id === projectId) : workDays);
       setLiveProfiles(prs);
       setLiveAvailabilities(avs);
       setPreviousAssignments(as);
