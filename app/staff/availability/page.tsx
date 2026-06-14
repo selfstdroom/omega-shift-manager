@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { formatDateTimeJa, formatPeriodLabel, getActivePeriod, getDaysUntilDeadline, getPeriodDateRange, periodTypeLabel } from '@/lib/availabilityPeriods';
 import { DEMO_USER } from '@/lib/demo';
 import { mockAvailabilities, mockAvailabilityPeriods, mockCompany } from '@/lib/mockData';
-import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
+import { listAvailabilities, listAvailabilityPeriods, upsertAvailabilities } from '@/lib/repositories/availabilityRepository';
 import type { Availability, AvailabilityPeriod, AvailabilityPeriodType, AvailabilityStatus } from '@/lib/types';
 
 const options: { value: AvailabilityStatus; mark: string; label: string; className: string; activeClassName: string; cellClassName: string }[] = [
@@ -43,22 +43,13 @@ export default function Page() {
   const isAfterDeadline = daysLeft < 0;
   const selected = avs.find((a) => a.work_date === selectedDate && a.staff_id === DEMO_USER.id);
 
-  async function load() {
-    const s = getSupabaseBrowserClient();
-    if (!s) return;
-    const { data: { user } } = await s.auth.getUser();
-    const currentUser = user ?? DEMO_USER;
-    const [{ data, error }, { data: periodRows }] = await Promise.all([s.from('availabilities').select('*').eq('staff_id', currentUser.id), s.from('availability_periods').select('*')]);
-    if (periodRows?.length) setPeriods(periodRows as AvailabilityPeriod[]);
-    if (error || !data?.length) {
-      setMsg(`${error?.message ?? 'Supabaseデータなし'}（デモデータを表示しています）`);
-      return;
-    }
-    setAvs(data as Availability[]);
-    setMsg(user ? '' : 'デモスタッフとして表示しています');
-  }
-
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    Promise.all([listAvailabilities(DEMO_USER.id), listAvailabilityPeriods()]).then(([data, periodRows]) => {
+      setPeriods(periodRows);
+      setAvs(data.length ? data : mockAvailabilities.filter((a) => a.staff_id === DEMO_USER.id));
+      setMsg('Supabase接続時は実データ、未接続時はデモスタッフとして表示しています');
+    }).catch((error) => setMsg(`${(error as Error).message}（デモデータを表示中）`));
+  }, []);
   useEffect(() => {
     const closePanel = () => setPanelPosition(null);
     window.addEventListener('resize', closePanel);
@@ -86,14 +77,8 @@ export default function Page() {
   }
 
   async function saveAll() {
-    const s = getSupabaseBrowserClient();
-    if (!s) { setMsg('Supabase未接続のため画面上のみ更新しました'); setPanelPosition(null); return; }
-    const { data: { user } } = await s.auth.getUser();
-    const currentUser = user ?? DEMO_USER;
-    const rows = avs.filter((a) => a.staff_id === DEMO_USER.id).map(({ company_id, work_date, status, note }) => ({ company_id, work_date, status, note, staff_id: currentUser.id }));
-    const { error } = await s.from('availabilities').upsert(rows, { onConflict: 'staff_id,work_date' });
-    setMsg(error ? `${error.message}（画面上のみ更新しました）` : '保存しました');
-    if (!error) setPanelPosition(null);
+    const rows = avs.filter((a) => a.staff_id === DEMO_USER.id).map(({ company_id, work_date, status, note }) => ({ company_id, work_date, status, note, staff_id: DEMO_USER.id }));
+    try { await upsertAvailabilities(rows); setMsg('保存しました'); setPanelPosition(null); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ更新しました）`); }
   }
 
   return (

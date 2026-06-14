@@ -11,7 +11,12 @@ import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { Select } from '@/components/ui/Select';
 import { getProjectFill, getDemoAssignments } from '@/lib/demo';
 import { mockAvailabilities, mockCompany, mockProfiles, mockProjectTemplates, mockProjects, mockWorkplaces } from '@/lib/mockData';
-import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
+import { listAvailabilities } from '@/lib/repositories/availabilityRepository';
+import { listAssignments } from '@/lib/repositories/assignmentRepository';
+import { deleteProject, listProjects, saveProject, saveProjects } from '@/lib/repositories/projectRepository';
+import { listProfiles } from '@/lib/repositories/staffRepository';
+import { listTemplates } from '@/lib/repositories/templateRepository';
+import { listWorkplaces } from '@/lib/repositories/workplaceRepository';
 import type { Assignment, Availability, Project, Profile, ProjectTemplate, Workplace } from '@/lib/types';
 
 type ProjectState = '未配置' | '配置OK' | '人数不足' | 'リーダー不足';
@@ -64,25 +69,9 @@ export default function Page() {
     if (saved) setItems(JSON.parse(saved) as Project[]);
     const savedTemplates = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
     if (savedTemplates) setTemplates(JSON.parse(savedTemplates) as ProjectTemplate[]);
-    (async () => {
-      const s = getSupabaseBrowserClient();
-      if (!s) return;
-      const [{ data: ps }, { data: ws }, { data: as }, { data: prs }, { data: avs }, { data: pts }] = await Promise.all([
-        s.from('projects').select('*').order('work_date'),
-        s.from('workplaces').select('*'),
-        s.from('assignments').select('*'),
-        s.from('profiles').select('*'),
-        s.from('availabilities').select('*'),
-        s.from('project_templates').select('*'),
-      ]);
-      if (ps?.length) setItems(ps as Project[]);
-      if (ws?.length) setWorkplaces(ws as Workplace[]);
-      if (as?.length) setAssignments(as as Assignment[]);
-      if (prs?.length) setProfiles(prs as Profile[]);
-      if (avs?.length) setAvailabilities(avs as Availability[]);
-      if (pts?.length) setTemplates(pts as ProjectTemplate[]);
-      setMsg('Supabaseと同期しています。未接続時は画面上のデモ操作として保存されます');
-    })();
+    Promise.all([listProjects(), listWorkplaces(), listAssignments(), listProfiles(), listAvailabilities(), listTemplates()]).then(([ps, ws, as, prs, avs, pts]) => {
+      setItems(ps); setWorkplaces(ws); setAssignments(as); setProfiles(prs); setAvailabilities(avs); setTemplates(pts); setMsg('Supabase接続時は実データ、未接続時はデモデータで操作できます');
+    }).catch((error) => setMsg(`${(error as Error).message}（デモデータを表示中）`));
   }, []);
 
   useEffect(() => {
@@ -115,13 +104,7 @@ export default function Page() {
     const dates = datesForDraft(templateDraft, selectedTemplate);
     const projects = dates.map((workDate) => projectFromTemplate(selectedTemplate, workDate));
     setItems((current) => [...projects, ...current]);
-    const s = getSupabaseBrowserClient();
-    if (s && projects.length) {
-      const { error } = await s.from('projects').upsert(projects);
-      setMsg(error ? `${error.message}（${projects.length}件を画面上のみ作成しました）` : `${projects.length}件の案件をテンプレートから作成しました`);
-    } else {
-      setMsg(`Supabase未接続のため${projects.length}件を画面上のみ作成しました`);
-    }
+    try { await saveProjects(projects); setMsg(`${projects.length}件の案件をテンプレートから作成しました`); } catch (error) { setMsg(`${(error as Error).message}（${projects.length}件を画面上のみ作成しました）`); }
     setTemplateCreatorOpen(false);
   }
 
@@ -147,23 +130,14 @@ export default function Page() {
     if (!editing) return;
     const normalized = { ...editing, required_people: Math.max(1, Number(editing.required_people) || 1), required_leaders: Math.max(1, Number(editing.required_leaders) || 1), title: editing.title.trim() || '無題の案件', location: editing.location.trim() || '未設定' };
     setItems((current) => current.some((x) => x.id === normalized.id) ? current.map((x) => (x.id === normalized.id ? normalized : x)) : [normalized, ...current]);
-    const s = getSupabaseBrowserClient();
-    if (!s) {
-      setMsg('Supabase未接続のため画面上のみ保存しました');
-      setEditing(null);
-      return;
-    }
-    const { error } = await s.from('projects').upsert(normalized);
-    setMsg(error ? `${error.message}（画面上のみ更新しました）` : '保存しました');
+    try { await saveProject(normalized); setMsg('保存しました'); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ更新しました）`); }
     setEditing(null);
   }
 
   async function remove() {
     if (!editing || !confirm('この案件を削除しますか？')) return;
     setItems((current) => current.filter((x) => x.id !== editing.id));
-    const s = getSupabaseBrowserClient();
-    if (s) await s.from('projects').delete().eq('id', editing.id);
-    setMsg('案件を削除しました');
+    try { await deleteProject(editing.id); setMsg('案件を削除しました'); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ削除しました）`); }
     setEditing(null);
   }
 

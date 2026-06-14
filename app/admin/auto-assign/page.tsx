@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,10 @@ import { StatCard } from '@/components/ui/StatCard';
 import { autoAssign } from '@/lib/autoAssign';
 import { demoAdmin } from '@/lib/demo';
 import { mockAvailabilities, mockCompany, mockPreviousAssignments, mockProfiles, mockProjects } from '@/lib/mockData';
+import { listAvailabilities } from '@/lib/repositories/availabilityRepository';
+import { listAssignments, runAndSaveAutoAssign, saveAssignment, deleteAssignment, confirmAssignments } from '@/lib/repositories/assignmentRepository';
+import { listProfiles } from '@/lib/repositories/staffRepository';
+import { listProjects } from '@/lib/repositories/projectRepository';
 import { createShiftConfirmedNotifications } from '@/lib/notifications';
 import type { Assignment, AssignmentResult, AvailabilityStatus, Profile, Project } from '@/lib/types';
 
@@ -43,18 +47,37 @@ function AutoAssignContent() {
     return projectId ? base.filter((p) => p.id === projectId) : base;
   }, [projectId, savedProjects]);
   const profiles = useMemo(() => (savedStaff ? [mockProfiles.find((p) => p.role === 'admin') ?? mockProfiles[0], ...(JSON.parse(savedStaff) as Profile[])] : mockProfiles), [savedStaff]);
+  const [liveProjects, setLiveProjects] = useState<Project[]>(projects);
+  const [liveProfiles, setLiveProfiles] = useState<Profile[]>(profiles);
+  const [liveAvailabilities, setLiveAvailabilities] = useState(mockAvailabilities);
+  const [previousAssignments, setPreviousAssignments] = useState<Assignment[]>(mockPreviousAssignments);
   const [results, setResults] = useState<AssignmentResult[]>([]);
   const [dirtyConfirmed, setDirtyConfirmed] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState('');
 
-  const run = () => {
+  useEffect(() => {
+    Promise.all([listProjects(), listProfiles(), listAvailabilities(), listAssignments()]).then(([ps, prs, avs, as]) => {
+      setLiveProjects(projectId ? ps.filter((p) => p.id === projectId) : ps);
+      setLiveProfiles(prs);
+      setLiveAvailabilities(avs);
+      setPreviousAssignments(as);
+    }).catch(() => undefined);
+  }, [projectId]);
+
+  const run = async () => {
     setDirtyConfirmed({});
-    setResults(autoAssign({ companyId: mockCompany.id, executedBy: demoAdmin.id, projects, profiles, availabilities: mockAvailabilities, previousAssignments: mockPreviousAssignments, runId: `demo-run-${Date.now()}` }));
+    try {
+      setResults(await runAndSaveAutoAssign());
+      setNotice('自動配置を実行し、結果をSupabaseへ保存しました。');
+    } catch {
+      setResults(autoAssign({ companyId: mockCompany.id, executedBy: demoAdmin.id, projects: liveProjects, profiles: liveProfiles, availabilities: liveAvailabilities, previousAssignments, runId: `demo-run-${Date.now()}` }));
+      setNotice('Supabase保存に失敗したため、画面上の配置結果として表示しています。');
+    }
   };
 
-  const staffName = (id: string) => profiles.find((p) => p.id === id)?.name ?? id;
-  const availability = (workDate: string, staffId: string) => mockAvailabilities.find((a) => a.work_date === workDate && a.staff_id === staffId)?.status;
-  const assignmentCount = (staffId: string) => mockPreviousAssignments.filter((a) => a.staff_id === staffId).length + results.reduce((sum, r) => sum + (r.assignments.some((a) => a.staff_id === staffId) ? 1 : 0), 0);
+  const staffName = (id: string) => liveProfiles.find((p) => p.id === id)?.name ?? id;
+  const availability = (workDate: string, staffId: string) => liveAvailabilities.find((a) => a.work_date === workDate && a.staff_id === staffId)?.status;
+  const assignmentCount = (staffId: string) => previousAssignments.filter((a) => a.staff_id === staffId).length + results.reduce((sum, r) => sum + (r.assignments.some((a) => a.staff_id === staffId) ? 1 : 0), 0);
 
   const recalc = (result: AssignmentResult): AssignmentResult => {
     const warnings: AssignmentResult['warnings'] = [];
@@ -85,28 +108,33 @@ function AutoAssignContent() {
       is_leader: asLeader,
       created_at: new Date().toISOString(),
     };
+    void saveAssignment(assignment).catch(() => undefined);
     return { ...result, assignments: [...result.assignments, assignment] };
   });
 
-  const removeStaff = (projectIdToUpdate: string, staffId: string) => updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: result.assignments.filter((a) => a.staff_id !== staffId) }));
-  const setLeader = (projectIdToUpdate: string, staffId: string, isLeader: boolean) => updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: result.assignments.map((a) => (a.staff_id === staffId ? { ...a, is_leader: isLeader } : a)) }));
+  const removeStaff = (projectIdToUpdate: string, staffId: string) => updateResult(projectIdToUpdate, (result) => { const removed = result.assignments.find((a) => a.staff_id === staffId); if (removed) void deleteAssignment(removed.id).catch(() => undefined); return { ...result, assignments: result.assignments.filter((a) => a.staff_id !== staffId) }; });
+  const setLeader = (projectIdToUpdate: string, staffId: string, isLeader: boolean) => updateResult(projectIdToUpdate, (result) => { const updated = result.assignments.map((a) => (a.staff_id === staffId ? { ...a, is_leader: isLeader } : a)); const changed = updated.find((a) => a.staff_id === staffId); if (changed) void saveAssignment(changed).catch(() => undefined); return { ...result, assignments: updated }; });
   const confirmProject = async (projectIdToUpdate: string) => {
     const target = results.find((result) => result.project.id === projectIdToUpdate);
     if (!target) return;
     const confirmedAssignments = target.assignments.map((a) => ({ ...a, status: 'confirmed' as const }));
-    await createShiftConfirmedNotifications({ assignments: confirmedAssignments, projects, profiles });
+    await Promise.all(confirmedAssignments.map(saveAssignment));
+    await confirmAssignments(projectIdToUpdate);
+    await createShiftConfirmedNotifications({ assignments: confirmedAssignments, projects: liveProjects, profiles: liveProfiles });
     updateResult(projectIdToUpdate, (result) => ({ ...result, assignments: confirmedAssignments }), false);
     setNotice(`${target.project.title}を確定し、${confirmedAssignments.length}件のWebアプリ内通知を作成しました。`);
   };
   const confirmAll = async () => {
     const confirmedResults = results.map((result) => ({ ...result, assignments: result.assignments.map((a) => ({ ...a, status: 'confirmed' as const })) }));
-    await createShiftConfirmedNotifications({ assignments: confirmedResults.flatMap((r) => r.assignments), projects, profiles });
+    await Promise.all(confirmedResults.flatMap((r) => r.assignments).map(saveAssignment));
+    await confirmAssignments();
+    await createShiftConfirmedNotifications({ assignments: confirmedResults.flatMap((r) => r.assignments), projects: liveProjects, profiles: liveProfiles });
     setResults(confirmedResults);
     setDirtyConfirmed({});
     setNotice(`全${confirmedResults.length}案件を確定し、${confirmedResults.reduce((sum, r) => sum + r.assignments.length, 0)}件のWebアプリ内通知を作成しました。`);
   };
 
-  const candidatesFor = (result: AssignmentResult): Candidate[] => profiles
+  const candidatesFor = (result: AssignmentResult): Candidate[] => liveProfiles
     .filter((profile) => profile.role === 'staff' && !result.assignments.some((a) => a.staff_id === profile.id))
     .map((profile) => ({ profile, availability: availability(result.project.work_date, profile.id), conflictProjects: results.filter((other) => other.project.id !== result.project.id && other.assignments.some((a) => a.staff_id === profile.id) && overlaps(result.project, other.project)).map((other) => other.project), assignmentCount: assignmentCount(profile.id) }))
     .filter((candidate): candidate is Candidate => candidate.availability === 'available' || candidate.availability === 'conditional')
