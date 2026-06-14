@@ -34,6 +34,7 @@ export default function Page() {
   const [role, setRole] = useState<RoleFilter>('all');
   const [submit, setSubmit] = useState<SubmitFilter>('all');
   const [editing, setEditing] = useState<EditableProfile | null>(null);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [draft, setDraft] = useState<StaffDraft>(emptyDraft());
 
   useEffect(() => {
@@ -91,27 +92,59 @@ export default function Page() {
     setEditing(null);
   }
 
-  async function remove() {
-    if (!editing || !confirm('このスタッフを無効化/削除しますか？')) return;
-    setItems((current) => current.filter((x) => x.id !== editing.id));
-    try { await deleteStaff(editing.id); setMsg('スタッフを削除しました。'); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ削除しました）`); }
-    setEditing(null);
+  async function remove(target = editing) {
+    if (!target || !confirm('このスタッフを無効化/削除しますか？')) return;
+    setItems((current) => current.filter((x) => x.id !== target.id));
+    setExpandedIds((current) => current.filter((id) => id !== target.id));
+    try { await deleteStaff(target.id); setMsg('スタッフを削除しました。'); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ削除しました）`); }
+    if (editing?.id === target.id) setEditing(null);
   }
 
   const leaderCount = items.filter((p) => p.staff_role === 'leader').length;
   const missingCount = [...staffStats.values()].filter((s) => !s.submitted).length;
+  const toggleExpanded = (staffId: string) => setExpandedIds((current) => current.includes(staffId) ? current.filter((id) => id !== staffId) : [...current, staffId]);
 
   return <div><PageHeader title="スタッフ一覧" description="自動配置に使う役職・所属・稼働状況を、操作可能なスタッフカードとして管理します。" actions={<Badge tone="blue">Leader {leaderCount}名</Badge>} />{msg && <p className="mb-3 text-sm text-blue-700">{msg}</p>}
     <Card className="mb-5 p-4 sm:p-5"><h2 className="text-lg font-bold text-slate-950">スタッフ新規作成</h2><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5"><Input placeholder="氏名" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /><Input placeholder="電話番号" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /><Select value={draft.workplace_id} onChange={(e) => setDraft({ ...draft, workplace_id: e.target.value })}>{workplaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select><Select value={draft.staff_role} onChange={(e) => setDraft({ ...draft, staff_role: e.target.value as StaffRole })}><option value="staff">staff</option><option value="leader">leader</option></Select><Input placeholder="メモ" value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></div><Button onClick={createStaff} className="mt-4 w-full sm:w-auto">追加する</Button></Card>
     <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><Input placeholder="名前・電話で検索" value={q} onChange={(e) => setQ(e.target.value)} /><Select value={wp} onChange={(e) => setWp(e.target.value)}><option value="all">全事業所</option>{workplaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select><Select value={role} onChange={(e) => setRole(e.target.value as RoleFilter)}><option value="all">全役職</option><option value="leader">leader</option><option value="staff">staff</option></Select><Select value={submit} onChange={(e) => setSubmit(e.target.value as SubmitFilter)}><option value="all">提出状況すべて</option><option value="missing">勤務可能日 未提出のみ（{missingCount}名）</option></Select></div>
-    <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">{filtered.map((p) => <StaffCard key={p.id} staff={p} workplace={workplaces.find((w) => w.id === p.workplace_id)} stats={staffStats.get(p.id)} averageCount={averageCount} onClick={() => setEditing(p)} />)}</div>
-    <ResponsiveEditor open={!!editing} title={editing?.name ?? ''} subtitle="スタッフ詳細" onClose={() => setEditing(null)}>{editing && <div className="space-y-4"><Label text="名前"><Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></Label><Label text="電話番号"><Input value={editing.phone ?? ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} /></Label><Label text="所属事業所"><Select value={editing.workplace_id ?? ''} onChange={(e) => setEditing({ ...editing, workplace_id: e.target.value })}>{workplaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select></Label><Label text="役職"><Select value={editing.staff_role} onChange={(e) => setEditing({ ...editing, staff_role: e.target.value as StaffRole })}><option value="staff">staff</option><option value="leader">leader</option></Select></Label><Label text="メモ"><Input value={editing.note ?? ''} onChange={(e) => setEditing({ ...editing, note: e.target.value })} /></Label><div className="grid grid-cols-2 gap-3"><Button variant="secondary" onClick={() => save({ ...editing, staff_role: 'leader' })}>リーダーに変更</Button><Button variant="secondary" onClick={() => save({ ...editing, staff_role: 'staff' })}>一般スタッフに変更</Button></div><div className="grid grid-cols-2 gap-3 pt-3"><Button onClick={() => save()}>保存</Button><Button variant="danger" onClick={remove}>削除/無効化</Button></div></div>}</ResponsiveEditor></div>;
+    <div className="space-y-3">{filtered.map((p) => <StaffCard key={p.id} staff={p} workplace={workplaces.find((w) => w.id === p.workplace_id)} stats={staffStats.get(p.id)} averageCount={averageCount} expanded={expandedIds.includes(p.id)} onToggle={() => toggleExpanded(p.id)} onEdit={() => setEditing(p)} onDelete={() => remove(p)} />)}</div>
+    <ResponsiveEditor open={!!editing} title={editing?.name ?? ''} subtitle="スタッフ詳細" onClose={() => setEditing(null)}>{editing && <div className="space-y-4"><Label text="名前"><Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></Label><Label text="電話番号"><Input value={editing.phone ?? ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} /></Label><Label text="所属事業所"><Select value={editing.workplace_id ?? ''} onChange={(e) => setEditing({ ...editing, workplace_id: e.target.value })}>{workplaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select></Label><Label text="役職"><Select value={editing.staff_role} onChange={(e) => setEditing({ ...editing, staff_role: e.target.value as StaffRole })}><option value="staff">staff</option><option value="leader">leader</option></Select></Label><Label text="メモ"><Input value={editing.note ?? ''} onChange={(e) => setEditing({ ...editing, note: e.target.value })} /></Label><div className="grid grid-cols-2 gap-3"><Button variant="secondary" onClick={() => save({ ...editing, staff_role: 'leader' })}>リーダーに変更</Button><Button variant="secondary" onClick={() => save({ ...editing, staff_role: 'staff' })}>一般スタッフに変更</Button></div><div className="grid grid-cols-2 gap-3 pt-3"><Button onClick={() => save()}>保存</Button><Button variant="danger" onClick={() => remove()}>削除/無効化</Button></div></div>}</ResponsiveEditor></div>;
 }
 
-function StaffCard({ staff, workplace, stats, averageCount, onClick }: { staff: EditableProfile; workplace?: Workplace; stats?: { count: number; upcoming: { project?: { title: string; work_date: string; start_time: string; end_time: string } }[]; submitted: boolean }; averageCount: number; onClick: () => void }) {
+function StaffCard({ staff, workplace, stats, averageCount, expanded, onToggle, onEdit, onDelete }: { staff: EditableProfile; workplace?: Workplace; stats?: { count: number; upcoming: { project?: { title: string; work_date: string; start_time: string; end_time: string } }[]; submitted: boolean }; averageCount: number; expanded: boolean; onToggle: () => void; onEdit: () => void; onDelete: () => void }) {
   const heavy = (stats?.count ?? 0) > averageCount + 0.5;
   const light = (stats?.count ?? 0) < averageCount - 0.5;
-  return <Card role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }} className={`group cursor-pointer border-l-4 p-5 transition hover:-translate-y-1 hover:shadow-md hover:ring-2 hover:ring-blue-200 focus:outline-none focus:ring-4 focus:ring-blue-200 ${staff.staff_role === 'leader' ? 'border-l-blue-600' : 'border-l-slate-300'}`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold text-slate-950">{staff.name}</h2><Badge tone={staff.staff_role === 'leader' ? 'blue' : 'slate'}>{staff.staff_role === 'leader' ? '👑 leader' : 'staff'}</Badge>{!stats?.submitted && <Badge tone="red">勤務可能日未提出</Badge>}</div><p className="mt-1 text-sm text-slate-500">📍 {workplace?.name ?? '未設定'}　☎ {staff.phone || '未登録'}</p></div><span className="text-xl text-blue-500 opacity-70 transition group-hover:translate-x-1">›</span></div><div className="mt-4 grid gap-2 text-sm sm:grid-cols-3"><Info label="今月の配置数" value={`${stats?.count ?? 0}件`} tone={heavy ? 'red' : light ? 'orange' : 'green'} helper={heavy ? '多め' : light ? '少なめ・優先候補' : '標準'} /><Info label="直近の勤務予定" value={stats?.upcoming[0]?.project?.work_date ?? '未定'} helper={stats?.upcoming[0]?.project?.title ?? '予定なし'} /><Info label="提出状況" value={stats?.submitted ? '提出済み' : '未提出'} tone={stats?.submitted ? 'green' : 'red'} /></div><div className="mt-4 flex flex-wrap gap-2">{stats?.upcoming.length ? stats.upcoming.slice(0, 3).map((row) => <Badge key={row.project?.work_date} tone="blue">{row.project?.work_date} {row.project?.start_time}</Badge>) : <Badge tone="slate">勤務予定なし</Badge>}</div><p className="mt-4 text-xs font-bold text-blue-600 opacity-0 transition group-hover:opacity-100">クリックして編集 →</p></Card>;
+  const upcoming = stats?.upcoming ?? [];
+  const firstProject = upcoming[0]?.project;
+  return <Card className={`overflow-hidden border-l-4 transition hover:shadow-md ${expanded ? 'border-l-blue-600 bg-blue-50/40 ring-2 ring-blue-100' : staff.staff_role === 'leader' ? 'border-l-blue-500 bg-white' : 'border-l-slate-300 bg-white'}`}>
+    <button type="button" aria-expanded={expanded} onClick={onToggle} className="group flex w-full flex-col gap-3 p-4 text-left transition focus:outline-none focus:ring-4 focus:ring-inset focus:ring-blue-100 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-black text-slate-950">{staff.name}</h2>
+          <Badge tone={staff.staff_role === 'leader' ? 'blue' : 'slate'}>{staff.staff_role === 'leader' ? '👑 leader' : 'staff'}</Badge>
+          <Badge tone={stats?.submitted ? 'green' : 'red'}>{stats?.submitted ? '提出済み' : '勤務可能日未提出'}</Badge>
+        </div>
+        <div className="mt-2 grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+          <span className="truncate">📍 {workplace?.name ?? '未設定'}</span>
+          <span className="truncate">☎ {staff.phone || '未登録'}</span>
+          <span className="text-blue-600 sm:hidden">{expanded ? '詳細を閉じる' : '詳細を開く'}</span>
+        </div>
+      </div>
+      <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xl font-black text-blue-600 shadow-sm ring-1 ring-slate-100 transition group-hover:bg-blue-600 group-hover:text-white ${expanded ? 'rotate-180' : ''}`} aria-hidden="true">⌄</span>
+    </button>
+    {expanded && <div className="border-t border-blue-100 bg-white/85 p-4 sm:p-5">
+      <div className="grid gap-3 text-sm md:grid-cols-3">
+        <Info label="今月の配置数" value={`${stats?.count ?? 0}件`} tone={heavy ? 'red' : light ? 'orange' : 'green'} helper={heavy ? '多め' : light ? '少なめ・優先候補' : '標準'} />
+        <Info label="直近の勤務予定" value={firstProject?.work_date ?? '未定'} helper={firstProject ? `${firstProject.title} ${firstProject.start_time}-${firstProject.end_time}` : '予定なし'} />
+        <Info label="備考" value={staff.note || '未登録'} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">{upcoming.length ? upcoming.slice(0, 4).map((row) => <Badge key={`${row.project?.title}-${row.project?.work_date}-${row.project?.start_time}`} tone="blue">{row.project?.work_date} {row.project?.start_time} {row.project?.title}</Badge>) : <Badge tone="slate">勤務予定なし</Badge>}</div>
+      <div className="mt-5 grid gap-2 sm:flex sm:justify-end">
+        <Button variant="secondary" className="w-full sm:w-auto" onClick={(e) => { e.stopPropagation(); onEdit(); }}>編集</Button>
+        <Button variant="danger" className="w-full sm:w-auto" onClick={(e) => { e.stopPropagation(); onDelete(); }}>削除/無効化</Button>
+      </div>
+    </div>}
+  </Card>;
 }
 
 function Info({ label, value, helper, tone = 'slate' }: { label: string; value: string; helper?: string; tone?: 'blue' | 'green' | 'orange' | 'red' | 'slate' }) { return <div className={`rounded-2xl p-3 ${tone === 'red' ? 'bg-red-50' : tone === 'orange' ? 'bg-orange-50' : tone === 'green' ? 'bg-green-50' : 'bg-slate-50'}`}><p className="text-xs font-bold text-slate-400">{label}</p><p className="mt-1 font-bold text-slate-800">{value}</p>{helper && <p className="mt-1 text-xs text-slate-500">{helper}</p>}</div>; }
