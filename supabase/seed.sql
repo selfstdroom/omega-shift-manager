@@ -12,6 +12,7 @@ declare
   admin_id uuid := '33333333-3333-3333-3333-333333333301';
   run_id uuid := '66666666-6666-6666-6666-666666666601';
   demo_password text := crypt('password123', gen_salt('bf'));
+  admin_account_id uuid := '77777777-7777-7777-7777-777777777701';
   project_ids uuid[] := array[
     '55555555-5555-5555-5555-555555555501'::uuid,
     '55555555-5555-5555-5555-555555555502'::uuid,
@@ -51,6 +52,9 @@ begin
 
   insert into public.profiles (id, company_id, workplace_id, name, role, staff_role, phone)
   values (admin_id, company_id, hq_id, '管理者 太郎', 'admin', 'leader', '03-0000-0001');
+
+  insert into public.admin_accounts (id, company_id, login_id, password_hash, name)
+  values (admin_account_id, company_id, 'admin', crypt('omega1234', gen_salt('bf')), '初期管理者');
 
   for i in 1..array_length(staff_ids, 1) loop
     insert into public.profiles (id, company_id, workplace_id, name, role, staff_role, phone)
