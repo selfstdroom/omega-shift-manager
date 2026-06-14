@@ -1,5 +1,8 @@
 import { NavCard } from '@/components/NavCard';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 
 export default function Home() {
-  return <section className="space-y-8"><div className="rounded-2xl bg-slate-900 p-8 text-white"><p className="text-sm font-semibold text-blue-200">Supabase Production Ready</p><h1 className="mt-3 text-4xl font-bold">オメガテクノの案件・勤務可能日・自動配置を一元管理</h1><p className="mt-4 max-w-2xl text-slate-200">Supabase Authと実データで、管理者CRUD・スタッフ勤務可否・自動配置保存まで運用できます。</p></div><div className="grid gap-4 md:grid-cols-3"><NavCard href="/login" title="ログイン" description="メール/パスワードで認証" /><NavCard href="/admin/auto-assign" title="自動配置" description="実データで配置して履歴を保存" /><NavCard href="/staff/shifts" title="自分のシフト" description="自分に割り当てられた案件のみ表示" /></div></section>;
+  return <section className="space-y-8"><div className="overflow-hidden rounded-[2rem] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-slate-100 p-8 shadow-sm sm:p-12"><Badge tone="blue">Demo Mode</Badge><h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">ログインなしで、案件管理・自動配置・スタッフ導線をすぐ確認できます。</h1><p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">認証は一時停止中です。Supabase未設定でも仮データでUIと画面遷移を確認できます。</p><div className="mt-8 flex flex-col gap-3 sm:flex-row"><a href="/admin"><Button className="w-full sm:w-auto">管理者画面へ</Button></a><a href="/staff"><Button variant="secondary" className="w-full sm:w-auto">スタッフ画面へ</Button></a></div></div><div className="grid gap-4 md:grid-cols-3"><NavCard href="/admin/projects" title="案件管理" description="案件カードと充足状況を確認" /><NavCard href="/admin/auto-assign" title="自動配置" description="成功・不足・配置スタッフを可視化" /><NavCard href="/staff/calendar" title="スタッフカレンダー" description="月表示でシフト確認" /></div><Card className="p-5 text-sm text-slate-600">後で戻せるようログイン画面・API・既存認証ファイルは削除していません。</Card></section>;
 }
