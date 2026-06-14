@@ -10,7 +10,9 @@ import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { Select } from '@/components/ui/Select';
 import { getDemoAssignments } from '@/lib/demo';
 import { mockAvailabilities, mockCompany, mockProfiles, mockProjects, mockWorkplaces } from '@/lib/mockData';
-import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
+import { listAvailabilities } from '@/lib/repositories/availabilityRepository';
+import { listWorkplaces } from '@/lib/repositories/workplaceRepository';
+import { deleteStaff, listProfiles, saveStaff } from '@/lib/repositories/staffRepository';
 import type { Availability, Profile, StaffRole, Workplace } from '@/lib/types';
 
 type StaffDraft = Pick<Profile, 'name' | 'phone' | 'workplace_id' | 'staff_role'> & { note: string };
@@ -45,20 +47,11 @@ export default function Page() {
   }, [items]);
 
   async function load() {
-    const s = getSupabaseBrowserClient();
-    if (!s) return;
-    const [{ data, error }, { data: ws }, { data: avs }] = await Promise.all([
-      s.from('profiles').select('*').eq('role', 'staff').order('created_at'),
-      s.from('workplaces').select('*'),
-      s.from('availabilities').select('*'),
-    ]);
-    if (error) setMsg(`${error.message}（デモデータを表示中）`);
-    else {
-      if (data?.length) setItems(data as EditableProfile[]);
-      if (ws?.length) setWorkplaces(ws as Workplace[]);
-      if (avs?.length) setAvailabilities(avs as Availability[]);
-      setMsg('Supabase実データ表示中。保存できない項目は画面上のデモ更新として扱います。');
-    }
+    try {
+      const [data, ws, avs] = await Promise.all([listProfiles('staff'), listWorkplaces(), listAvailabilities()]);
+      setItems(data as EditableProfile[]); setWorkplaces(ws); setAvailabilities(avs);
+      setMsg('Supabase接続時は実データ、未接続時はデモデータを表示します。');
+    } catch (error) { setMsg(`${(error as Error).message}（デモデータを表示中）`); }
   }
 
   const assignmentRows = useMemo(() => getDemoAssignments(), []);
@@ -88,24 +81,20 @@ export default function Page() {
     setItems((current) => [next, ...current]);
     setDraft(emptyDraft(draft.workplace_id));
     setMsg('スタッフを作成しました。自動配置の候補一覧にも反映されます。');
-    const s = getSupabaseBrowserClient();
-    if (s) await s.from('profiles').insert(next);
+    try { const saved = await saveStaff(next); setItems((current) => current.map((x) => x.id === next.id ? saved as EditableProfile : x)); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ作成しました）`); }
   }
 
   async function save(next = editing) {
     if (!next) return;
     setItems((current) => current.map((x) => (x.id === next.id ? next : x)));
-    const s = getSupabaseBrowserClient();
-    if (!s) { setMsg('Supabase未接続のため画面上のみ保存しました'); setEditing(null); return; }
-    const { error } = await s.from('profiles').update({ name: next.name, phone: next.phone, staff_role: next.staff_role, workplace_id: next.workplace_id, note: next.note }).eq('id', next.id);
-    setMsg(error ? `${error.message}（画面上のみ更新しました）` : '保存しました');
+    try { await saveStaff(next); setMsg('保存しました'); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ更新しました）`); }
     setEditing(null);
   }
 
-  function remove() {
+  async function remove() {
     if (!editing || !confirm('このスタッフを無効化/削除しますか？')) return;
     setItems((current) => current.filter((x) => x.id !== editing.id));
-    setMsg('デモ上で無効化しました。自動配置候補からも除外されます。');
+    try { await deleteStaff(editing.id); setMsg('スタッフを削除しました。'); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ削除しました）`); }
     setEditing(null);
   }
 

@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { getGoogleCalendarUrl, roleLabel, type ShiftRow } from '@/components/staffShiftUi';
 import { demoStaff, getDemoShiftRows } from '@/lib/demo';
-import { getStaffNotifications, markNotificationRead, readLocalNotifications, writeLocalNotifications } from '@/lib/notifications';
+import { listNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/repositories/notificationRepository';
 import type { Notification } from '@/lib/types';
 
 export default function StaffNotificationsPage() {
@@ -17,7 +17,7 @@ export default function StaffNotificationsPage() {
   const [selected, setSelected] = useState<Notification | null>(null);
   const shifts = useMemo(() => getDemoShiftRows(), []);
 
-  const load = () => getStaffNotifications(demoStaff.id).then((data) => {
+  const load = () => listNotifications(demoStaff.id).then((data) => {
     const sorted = [...data].sort((a, b) => b.created_at.localeCompare(a.created_at));
     setItems(sorted);
   });
@@ -38,7 +38,8 @@ export default function StaffNotificationsPage() {
   };
 
   const markAllRead = async () => {
-    writeLocalNotifications(readLocalNotifications().map((item) => item.staff_id === demoStaff.id ? { ...item, is_read: true } : item));
+    await markAllNotificationsRead(demoStaff.id);
+    setItems((current) => current.map((item) => item.staff_id === demoStaff.id ? { ...item, is_read: true } : item));
     await load();
     setSelected((current) => current ? { ...current, is_read: true } : current);
   };
