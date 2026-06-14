@@ -1,4 +1,5 @@
 -- Supabase SQL Editorで再実行しやすいように、依存順に削除してから作成します。
+drop table if exists public.notifications cascade;
 drop table if exists public.assignments cascade;
 drop table if exists public.admin_accounts cascade;
 drop table if exists public.assignment_runs cascade;
@@ -10,6 +11,7 @@ drop table if exists public.companies cascade;
 
 drop function if exists public.current_company_id() cascade;
 
+drop type if exists public.notification_type cascade;
 drop type if exists public.assignment_status cascade;
 drop type if exists public.availability_status cascade;
 drop type if exists public.staff_role cascade;
@@ -21,6 +23,7 @@ create type public.user_role as enum ('admin', 'staff');
 create type public.staff_role as enum ('staff', 'leader');
 create type public.availability_status as enum ('available', 'conditional', 'unavailable');
 create type public.assignment_status as enum ('draft', 'confirmed');
+create type public.notification_type as enum ('shift_confirmed', 'system');
 
 create table public.companies (
   id uuid primary key default gen_random_uuid(),
@@ -103,8 +106,21 @@ create table public.assignments (
   unique (run_id, project_id, staff_id)
 );
 
+
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  staff_id uuid not null references public.profiles(id) on delete cascade,
+  title text not null,
+  message text not null,
+  type public.notification_type not null default 'system',
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
 create index availabilities_work_date_status_idx on public.availabilities(company_id, work_date, status);
 create index assignments_staff_idx on public.assignments(staff_id);
+create index notifications_staff_read_idx on public.notifications(staff_id, is_read, created_at desc);
 create index projects_company_date_idx on public.projects(company_id, work_date, start_time);
 create index admin_accounts_login_id_idx on public.admin_accounts(login_id);
 
@@ -116,6 +132,7 @@ alter table public.projects enable row level security;
 alter table public.availabilities enable row level security;
 alter table public.assignment_runs enable row level security;
 alter table public.assignments enable row level security;
+alter table public.notifications enable row level security;
 
 create or replace function public.current_company_id() returns uuid language sql stable security definer set search_path = public as $$
   select company_id from public.profiles where id = auth.uid()
@@ -130,6 +147,7 @@ create policy "projects_company_all" on public.projects for all using (company_i
 create policy "availabilities_company_all" on public.availabilities for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 create policy "assignment_runs_company_all" on public.assignment_runs for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 create policy "assignments_company_all" on public.assignments for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
+create policy "notifications_company_all" on public.notifications for all using (company_id = public.current_company_id()) with check (company_id = public.current_company_id());
 create policy "companies_select_own" on public.companies for select using (id = public.current_company_id());
 
 

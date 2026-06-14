@@ -2,6 +2,7 @@ export type UserRole = 'admin' | 'staff';
 export type StaffRole = 'staff' | 'leader';
 export type AvailabilityStatus = 'available' | 'conditional' | 'unavailable';
 export type AssignmentStatus = 'draft' | 'confirmed';
+export type NotificationType = 'shift_confirmed' | 'system';
 
 export type Company = {
   id: string;
@@ -88,4 +89,15 @@ export type AutoAssignInput = {
   availabilities: Availability[];
   previousAssignments?: Assignment[];
   runId?: string;
+};
+
+export type Notification = {
+  id: string;
+  company_id: string;
+  staff_id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  is_read: boolean;
+  created_at: string;
 };

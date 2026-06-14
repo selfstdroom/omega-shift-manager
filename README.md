@@ -7,8 +7,9 @@
 - Supabaseメール認証: ログイン、メール/パスワード登録、ログアウト
 - ロール制御: `profiles.role` の `admin` / `staff` により `/admin/**` と `/staff/**` を保護
 - 管理者: ダッシュボード、事業所CRUD、スタッフ編集、案件CRUD、自動配置実行/保存
-- スタッフ: 勤務可能日登録、自分のシフト/カレンダー確認
+- スタッフ: 勤務可能日登録、自分のシフト/カレンダー確認、Webアプリ内通知確認
 - 自動配置: `projects`, `profiles`, `availabilities`, `assignments` の実データで実行し、`assignment_runs` に履歴保存
+- 通知: LINE通知は実装せず、`notifications` テーブルと通知作成処理を分離したWebアプリ内通知として実装
 
 ## セットアップ
 
