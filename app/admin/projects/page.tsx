@@ -10,13 +10,15 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { Select } from '@/components/ui/Select';
 import { getProjectFill, getDemoAssignments } from '@/lib/demo';
-import { mockAvailabilities, mockCompany, mockProfiles, mockProjects, mockWorkplaces } from '@/lib/mockData';
+import { mockAvailabilities, mockCompany, mockProfiles, mockProjectTemplates, mockProjects, mockWorkplaces } from '@/lib/mockData';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
-import type { Assignment, Availability, Project, Profile, Workplace } from '@/lib/types';
+import type { Assignment, Availability, Project, Profile, ProjectTemplate, Workplace } from '@/lib/types';
 
 type ProjectState = '未配置' | '配置OK' | '人数不足' | 'リーダー不足';
 type EditorMode = 'create' | 'edit' | 'duplicate';
 const STORAGE_KEY = 'omega-demo-projects';
+const TEMPLATE_STORAGE_KEY = 'omega-demo-project-templates';
+const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
 
 const makeProjectId = () => `demo-project-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -52,26 +54,33 @@ export default function Page() {
   const [wp, setWp] = useState('all');
   const [editing, setEditing] = useState<Project | null>(null);
   const [editorMode, setEditorMode] = useState<EditorMode>('edit');
+  const [templates, setTemplates] = useState<ProjectTemplate[]>(mockProjectTemplates);
+  const [templateCreatorOpen, setTemplateCreatorOpen] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState<TemplateDraft>({ templateId: mockProjectTemplates[0]?.id ?? '', mode: 'single', date: today(), weekStart: today(), month: today().slice(0, 7), weekdays: mockProjectTemplates[0]?.weekdays ?? [1, 3, 5] });
   const [msg, setMsg] = useState('ログインなし・Supabase未接続でもデモデータで作成/編集/削除できます');
 
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved) setItems(JSON.parse(saved) as Project[]);
+    const savedTemplates = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+    if (savedTemplates) setTemplates(JSON.parse(savedTemplates) as ProjectTemplate[]);
     (async () => {
       const s = getSupabaseBrowserClient();
       if (!s) return;
-      const [{ data: ps }, { data: ws }, { data: as }, { data: prs }, { data: avs }] = await Promise.all([
+      const [{ data: ps }, { data: ws }, { data: as }, { data: prs }, { data: avs }, { data: pts }] = await Promise.all([
         s.from('projects').select('*').order('work_date'),
         s.from('workplaces').select('*'),
         s.from('assignments').select('*'),
         s.from('profiles').select('*'),
         s.from('availabilities').select('*'),
+        s.from('project_templates').select('*'),
       ]);
       if (ps?.length) setItems(ps as Project[]);
       if (ws?.length) setWorkplaces(ws as Workplace[]);
       if (as?.length) setAssignments(as as Assignment[]);
       if (prs?.length) setProfiles(prs as Profile[]);
       if (avs?.length) setAvailabilities(avs as Availability[]);
+      if (pts?.length) setTemplates(pts as ProjectTemplate[]);
       setMsg('Supabaseと同期しています。未接続時は画面上のデモ操作として保存されます');
     })();
   }, []);
@@ -79,6 +88,8 @@ export default function Page() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
+
+  const selectedTemplate = templates.find((template) => template.id === templateDraft.templateId) ?? templates[0];
 
   const locationOptions = useMemo(() => Array.from(new Set(items.map((p) => p.location).filter(Boolean))).sort(), [items]);
   const filtered = useMemo(
@@ -92,6 +103,27 @@ export default function Page() {
     return acc;
   }, { 未配置: 0, 配置OK: 0, 人数不足: 0, リーダー不足: 0 }), [items, assignments]);
   const availableStaff = (p: Project) => availabilities.filter((a) => a.work_date === p.work_date && a.status !== 'unavailable').sort((a, b) => (a.status === b.status ? 0 : a.status === 'available' ? -1 : 1));
+
+  function openTemplateCreator() {
+    const template = selectedTemplate;
+    setTemplateDraft((current) => ({ ...current, templateId: template?.id ?? '', weekdays: template?.weekdays ?? current.weekdays }));
+    setTemplateCreatorOpen(true);
+  }
+
+  async function createFromTemplate() {
+    if (!selectedTemplate) return;
+    const dates = datesForDraft(templateDraft, selectedTemplate);
+    const projects = dates.map((workDate) => projectFromTemplate(selectedTemplate, workDate));
+    setItems((current) => [...projects, ...current]);
+    const s = getSupabaseBrowserClient();
+    if (s && projects.length) {
+      const { error } = await s.from('projects').upsert(projects);
+      setMsg(error ? `${error.message}（${projects.length}件を画面上のみ作成しました）` : `${projects.length}件の案件をテンプレートから作成しました`);
+    } else {
+      setMsg(`Supabase未接続のため${projects.length}件を画面上のみ作成しました`);
+    }
+    setTemplateCreatorOpen(false);
+  }
 
   function createProject() {
     const project = newProject(wp === 'all' ? workplaces[0]?.id ?? 'wp-1' : wp, locationOptions);
@@ -138,7 +170,7 @@ export default function Page() {
   const editorTitle = editorMode === 'create' ? '案件を追加' : editorMode === 'duplicate' ? '案件を複製' : editing?.title ?? '';
 
   return <div>
-    <PageHeader title="案件管理" description="案件を素早く登録し、カードを開いて編集・複製・削除・自動配置まで進めます。" actions={<><Link href="/admin/calendar"><Button variant="secondary" className="min-h-12 rounded-2xl">カレンダーへ</Button></Link><Button onClick={createProject} className="min-h-12 rounded-2xl">＋ 案件を追加</Button></>} />
+    <PageHeader title="案件管理" description="案件を素早く登録し、カードを開いて編集・複製・削除・自動配置まで進めます。" actions={<><Link href="/admin/templates"><Button variant="secondary" className="min-h-12 rounded-2xl">テンプレート管理</Button></Link><Button variant="secondary" onClick={openTemplateCreator} className="min-h-12 rounded-2xl">テンプレートから作成</Button><Link href="/admin/calendar"><Button variant="secondary" className="min-h-12 rounded-2xl">カレンダーへ</Button></Link><Button onClick={createProject} className="min-h-12 rounded-2xl">＋ 案件を追加</Button></>} />
     {msg && <p className="mb-3 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">{msg}</p>}
     <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{(['未配置', '配置OK', '人数不足', 'リーダー不足'] as ProjectState[]).map((s) => <div key={s} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><p className="text-xs font-bold text-slate-400">{s}</p><p className="mt-1 text-3xl font-black text-slate-950">{stats[s]}</p></div>)}</div>
     <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_220px]"><Input placeholder="案件名・場所・日付で検索" value={q} onChange={(e) => setQ(e.target.value)} /><Select value={wp} onChange={(e) => setWp(e.target.value)}><option value="all">全事業所</option>{workplaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select></div>
@@ -147,6 +179,7 @@ export default function Page() {
     <div className="mt-4 grid gap-4 lg:hidden">{filtered.map((p) => <ProjectCard key={p.id} project={p} assignments={assignments} workplaces={workplaces} profiles={profiles} staff={availableStaff(p)} onEdit={() => openEdit(p)} onDuplicate={() => duplicateProject(p)} />)}</div>
     <div className="mt-4 hidden gap-4 lg:grid">{filtered.map((p) => <ProjectCard key={p.id} project={p} assignments={assignments} workplaces={workplaces} profiles={profiles} staff={availableStaff(p)} onEdit={() => openEdit(p)} onDuplicate={() => duplicateProject(p)} />)}</div>
 
+    <ResponsiveEditor open={templateCreatorOpen} title="テンプレートから作成" subtitle="1日・指定週・指定月に曜日指定で複製します" onClose={() => setTemplateCreatorOpen(false)}><TemplateCreator templates={templates} draft={templateDraft} onChange={setTemplateDraft} onCreate={createFromTemplate} /></ResponsiveEditor>
     <ResponsiveEditor open={!!editing} title={editorTitle} subtitle={editorMode === 'duplicate' ? '日付だけ変更して複製できます' : '案件詳細'} onClose={() => setEditing(null)}>{editing && <ProjectForm project={editing} workplaces={workplaces} locationOptions={locationOptions} onChange={setEditing} onSave={save} onRemove={remove} showRemove={editorMode === 'edit'} />}</ResponsiveEditor>
   </div>;
 }
@@ -173,3 +206,9 @@ function ProjectRow({ project, assignments, workplaces, onEdit }: { project: Pro
 function ProjectCard({ project, assignments, workplaces, profiles, staff, onEdit, onDuplicate }: { project: Project; assignments: Assignment[]; workplaces: Workplace[]; profiles: Profile[]; staff: Availability[]; onEdit: () => void; onDuplicate: () => void }) { const f = getProjectFill(project, assignments); const state = getState(project, assignments); return <Card role="button" tabIndex={0} onClick={onEdit} onKeyDown={(e) => { if (e.key === 'Enter') onEdit(); }} className="group cursor-pointer border-l-4 border-l-blue-600 p-4 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-2 hover:ring-blue-200 sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="text-xl font-bold text-slate-950">{project.title || '無題の案件'}</h2><Badge tone={stateTone(state)}>{state}</Badge></div><p className="mt-2 text-sm font-semibold text-slate-600">📅 {project.work_date}　🕘 {project.start_time}-{project.end_time}</p><p className="mt-1 text-sm text-slate-500">📍 {workplaces.find((w) => w.id === project.workplace_id)?.name ?? '事業所'} · {project.location}</p></div><div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4 lg:min-w-[520px]"><Info label="必要人数" value={`${project.required_people}名`} danger={!f.peopleOk} /><Info label="必要L" value={`${f.requiredLeaders}名`} danger={!f.leadersOk} /><Info label="配置状況" value={`${f.assigned}/${project.required_people}`} danger={!f.peopleOk} /><Info label="Leader" value={`${f.leaders}/${f.requiredLeaders}`} danger={!f.leadersOk} /></div></div><div className="mt-4 flex flex-wrap gap-2">{staff.length ? staff.slice(0, 6).map((a) => <Badge key={`${a.staff_id}-${a.work_date}`} tone={a.status === 'available' ? 'green' : 'orange'}>{profiles.find((profile) => profile.id === a.staff_id)?.name ?? a.staff_id} {a.status === 'available' ? '○' : '△ 条件付き'}</Badge>) : <Badge tone="slate">候補なし</Badge>}</div><div className="mt-4 flex flex-col gap-2 sm:flex-row"><Button variant="secondary" className="w-full sm:w-auto" onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>複製</Button><Link href={`/admin/auto-assign?projectId=${project.id}`} onClick={(e) => e.stopPropagation()}><Button className="w-full sm:w-auto">自動配置へ進む</Button></Link></div></Card>; }
 function Info({ label, value, danger }: { label: string; value: string; danger?: boolean }) { return <div className={`rounded-xl p-3 ${danger ? 'bg-red-50 text-red-700 ring-1 ring-red-100' : 'bg-slate-50 text-slate-800'}`}><p className="text-xs font-semibold opacity-60">{label}</p><p className="mt-1 font-bold">{value}</p></div>; }
 function Label({ text, children }: { text: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1 block text-sm font-bold text-slate-700">{text}</span>{children}</label>; }
+
+
+type TemplateDraft = { templateId: string; mode: 'single' | 'week' | 'month'; date: string; weekStart: string; month: string; weekdays: number[] };
+function projectFromTemplate(template: ProjectTemplate, workDate: string): Project { return { id: makeProjectId(), company_id: template.company_id, workplace_id: template.workplace_id, title: template.title, work_date: workDate, start_time: template.start_time, end_time: template.end_time, location: template.location, required_people: template.required_people, required_leaders: template.required_leaders ?? 0, note: template.note, created_at: new Date().toISOString() }; }
+function datesForDraft(draft: TemplateDraft, template: ProjectTemplate) { const selected = draft.weekdays.length ? draft.weekdays : template.weekdays; if (draft.mode === 'single') return [draft.date]; const dates: string[] = []; if (draft.mode === 'week') { const base = new Date(`${draft.weekStart}T00:00:00`); for (let offset = 0; offset < 7; offset += 1) { const d = new Date(base); d.setDate(base.getDate() + offset); if (selected.includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); } return dates; } const [year, month] = draft.month.split('-').map(Number); const last = new Date(year, month, 0).getDate(); for (let day = 1; day <= last; day += 1) { const d = new Date(year, month - 1, day); if (selected.includes(d.getDay())) dates.push(d.toISOString().slice(0, 10)); } return dates; }
+function TemplateCreator({ templates, draft, onChange, onCreate }: { templates: ProjectTemplate[]; draft: TemplateDraft; onChange: (draft: TemplateDraft) => void; onCreate: () => void }) { const template = templates.find((t) => t.id === draft.templateId) ?? templates[0]; const preview = template ? datesForDraft(draft, template) : []; return <div className="space-y-4"><Label text="テンプレート選択"><Select value={draft.templateId} onChange={(e) => { const next = templates.find((t) => t.id === e.target.value); onChange({ ...draft, templateId: e.target.value, weekdays: next?.weekdays ?? draft.weekdays }); }}>{templates.map((t) => <option key={t.id} value={t.id}>{t.template_name}（{t.title}）</option>)}</Select></Label>{template && <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700"><p className="font-bold text-slate-950">{template.title}</p><p className="mt-1">{template.start_time}-{template.end_time} · {template.location} · {template.required_people}名 / L{template.required_leaders ?? 0}名</p></div>}<Label text="作成単位"><Select value={draft.mode} onChange={(e) => onChange({ ...draft, mode: e.target.value as TemplateDraft['mode'] })}><option value="single">1日だけ作成</option><option value="week">指定週に複数日作成</option><option value="month">指定月に複数日作成</option></Select></Label>{draft.mode === 'single' ? <Label text="日付"><Input type="date" value={draft.date} onChange={(e) => onChange({ ...draft, date: e.target.value })} /></Label> : draft.mode === 'week' ? <Label text="週の開始日"><Input type="date" value={draft.weekStart} onChange={(e) => onChange({ ...draft, weekStart: e.target.value })} /></Label> : <Label text="対象月"><Input type="month" value={draft.month} onChange={(e) => onChange({ ...draft, month: e.target.value })} /></Label>}{draft.mode !== 'single' && <Label text="曜日指定"><div className="grid grid-cols-7 gap-2">{weekdays.map((day, index) => <button key={day} type="button" onClick={() => onChange({ ...draft, weekdays: draft.weekdays.includes(index) ? draft.weekdays.filter((v) => v !== index) : [...draft.weekdays, index].sort() })} className={`rounded-xl px-2 py-3 text-sm font-bold ${draft.weekdays.includes(index) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{day}</button>)}</div></Label>}<div className="rounded-2xl bg-blue-50 p-4 text-sm font-semibold text-blue-800">作成予定: {preview.length}件 {preview.slice(0, 8).join(' / ')}{preview.length > 8 ? ' ...' : ''}</div><Button className="w-full rounded-2xl" onClick={onCreate} disabled={!template || preview.length === 0}>案件を作成</Button></div>; }
