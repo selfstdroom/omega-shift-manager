@@ -1,5 +1,6 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { LogoutButton } from '@/components/LogoutButton';
 import { BottomNav, type BottomNavItem } from '@/components/ui/BottomNav';
@@ -13,6 +14,9 @@ const nav: BottomNavItem[] = [
 ];
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
+  const path = usePathname();
+  if (path === '/staff/login' || path === '/staff/signup') return <div className="px-4 py-10">{children}</div>;
+
   return (
     <AuthGate allowedRole="staff">
       <div className="mx-auto min-h-[calc(100vh-57px)] max-w-5xl px-4 py-5 pb-24 sm:px-6 md:py-8 md:pb-8">
