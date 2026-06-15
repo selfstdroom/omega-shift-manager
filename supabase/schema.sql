@@ -1,6 +1,4 @@
 -- Login-less demo/production schema. Run in Supabase SQL Editor.
-create extension if not exists "pgcrypto";
-
 drop table if exists public.notifications cascade;
 drop table if exists public.assignments cascade;
 drop table if exists public.assignment_runs cascade;
@@ -33,7 +31,7 @@ create type public.project_type as enum ('single', 'recurring');
 
 create table public.companies (id text primary key default gen_random_uuid()::text, name text not null unique, created_at timestamptz not null default now());
 create table public.workplaces (id text primary key default gen_random_uuid()::text, company_id text not null references public.companies(id) on delete cascade, name text not null, address text not null default '', created_at timestamptz not null default now(), unique(company_id,name));
-create table public.admin_accounts (id text primary key default gen_random_uuid()::text, company_id text not null references public.companies(id) on delete cascade, login_id text unique not null, password_hash text not null, name text not null, created_at timestamptz not null default now());
+create table public.admin_accounts (id text primary key, company_id text, login_id text unique not null, password_text text not null, name text not null, created_at timestamptz default now());
 create table public.profiles (id text primary key default gen_random_uuid()::text, company_id text not null references public.companies(id) on delete cascade, workplace_id text not null references public.workplaces(id) on delete restrict, name text not null, role public.user_role not null default 'staff', staff_role public.staff_role not null default 'staff', phone text not null default '', note text, created_at timestamptz not null default now());
 create table public.project_templates (id text primary key default gen_random_uuid()::text, company_id text not null references public.companies(id) on delete cascade, workplace_id text not null references public.workplaces(id) on delete restrict, template_name text not null, title text not null, start_time time not null, end_time time not null, location text not null default '', required_people int not null check(required_people>0), required_leaders int not null default 1 check(required_leaders>=0), note text not null default '', weekdays int[] not null default array[1,3,5], created_at timestamptz not null default now(), check(start_time<end_time));
 create table public.projects (id text primary key default gen_random_uuid()::text, company_id text not null references public.companies(id) on delete cascade, workplace_id text not null references public.workplaces(id) on delete restrict, title text not null, project_type public.project_type not null default 'single', work_date date not null, start_time time not null, end_time time not null, location text not null default '', required_people int not null check(required_people>0), required_leaders int not null default 1 check(required_leaders>=0), note text not null default '', created_at timestamptz not null default now(), check(start_time<end_time));
@@ -63,21 +61,3 @@ create policy "demo_all_availabilities" on public.availabilities for all using (
 create policy "demo_all_assignment_runs" on public.assignment_runs for all using (true) with check (true);
 create policy "demo_all_assignments" on public.assignments for all using (true) with check (true);
 create policy "demo_all_notifications" on public.notifications for all using (true) with check (true);
-
--- Production admin login verifier. Uses pgcrypto bcrypt (crypt) comparison on the database server
--- and returns only non-secret account fields to the application server.
-create or replace function public.verify_admin_login(input_login_id text, input_password text)
-returns table (id text, company_id text, login_id text, name text)
-language sql
-security definer
-set search_path = public
-as $$
-  select a.id, a.company_id, a.login_id, a.name
-  from public.admin_accounts a
-  where a.login_id = input_login_id
-    and a.password_hash = crypt(input_password, a.password_hash)
-  limit 1;
-$$;
-
-revoke all on function public.verify_admin_login(text, text) from public;
-grant execute on function public.verify_admin_login(text, text) to anon, authenticated;
