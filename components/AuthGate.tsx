@@ -11,13 +11,29 @@ export function AuthGate({ allowedRole, children }: { allowedRole: UserRole; chi
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (allowedRole !== 'staff') { setReady(true); return; }
-    const supabase = getSupabaseBrowserClient();
-    if (!isSupabaseConfigured || !supabase) { setMessage('Supabaseに接続できません。.env.local を設定してください。'); return; }
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) { router.replace('/staff/login'); return; }
-      setReady(true);
-    });
+    let mounted = true;
+
+    async function checkAuth() {
+      try {
+        if (allowedRole !== 'staff') { setReady(true); return; }
+        const supabase = getSupabaseBrowserClient();
+        if (!isSupabaseConfigured || !supabase) {
+          if (mounted) setMessage('Supabaseに接続できません。.env.local を設定してください。');
+          return;
+        }
+        const { data, error } = await Promise.race([
+          supabase.auth.getUser(),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('auth-timeout')), 8000)),
+        ]);
+        if (error || !data.user) { router.replace('/staff/login'); return; }
+        if (mounted) setReady(true);
+      } catch {
+        router.replace('/staff/login');
+      }
+    }
+
+    checkAuth();
+    return () => { mounted = false; };
   }, [allowedRole, router]);
 
   if (message) return <div className="rounded-xl bg-red-50 p-4 text-red-700">{message}</div>;
