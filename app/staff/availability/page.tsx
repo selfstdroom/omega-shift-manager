@@ -7,10 +7,10 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { formatDateTimeJa, formatPeriodLabel, getActivePeriod, getDaysUntilDeadline, getPeriodDateRange, periodTypeLabel } from '@/lib/availabilityPeriods';
-import { DEMO_USER } from '@/lib/demo';
+import { getCurrentStaffProfile } from '@/lib/staffAuth';
 import { mockAvailabilities, mockAvailabilityPeriods, mockCompany } from '@/lib/mockData';
 import { listAvailabilities, listAvailabilityPeriods, upsertAvailabilities } from '@/lib/repositories/availabilityRepository';
-import type { Availability, AvailabilityPeriod, AvailabilityPeriodType, AvailabilityStatus } from '@/lib/types';
+import type { Availability, AvailabilityPeriod, AvailabilityPeriodType, AvailabilityStatus, Profile } from '@/lib/types';
 
 const options: { value: AvailabilityStatus; mark: string; label: string; className: string; activeClassName: string; cellClassName: string }[] = [
   { value: 'available', mark: '○', label: 'いける', className: 'border-green-200 bg-green-50 text-green-700', activeClassName: 'border-green-500 bg-green-500 text-white shadow-green-200', cellClassName: 'border-green-200 bg-green-50/70' },
@@ -31,24 +31,29 @@ export default function Page() {
   const [periodType, setPeriodType] = useState<AvailabilityPeriodType>('monthly');
   const [periods, setPeriods] = useState<AvailabilityPeriod[]>(mockAvailabilityPeriods);
   const [month, setMonth] = useState(() => new Date('2026-07-01'));
-  const [avs, setAvs] = useState<Availability[]>(mockAvailabilities.filter((a) => a.staff_id === DEMO_USER.id));
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [avs, setAvs] = useState<Availability[]>([]);
   const [selectedDate, setSelectedDate] = useState(fmt(new Date('2026-06-20')));
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
-  const [msg, setMsg] = useState('デモスタッフとして表示しています');
+  const [msg, setMsg] = useState('ログイン中スタッフ本人の勤務可能日を表示しています');
 
   const period = useMemo(() => getActivePeriod(periods, periodType), [periods, periodType]);
   const days = useMemo(() => buildCalendarDays(month), [month]);
   const weekDays = useMemo(() => buildWeekDays(period), [period]);
   const daysLeft = getDaysUntilDeadline(period.deadline);
   const isAfterDeadline = daysLeft < 0;
-  const selected = avs.find((a) => a.work_date === selectedDate && a.staff_id === DEMO_USER.id);
+  const selected = profile ? avs.find((a) => a.work_date === selectedDate && a.staff_id === profile.id) : undefined;
 
   useEffect(() => {
-    Promise.all([listAvailabilities(DEMO_USER.id), listAvailabilityPeriods()]).then(([data, periodRows]) => {
+    (async () => {
+      const { profile: currentProfile, message } = await getCurrentStaffProfile();
+      if (!currentProfile) { setMsg(message ?? 'ログイン情報を確認できません。再ログインしてください。'); return; }
+      setProfile(currentProfile);
+      const [data, periodRows] = await Promise.all([listAvailabilities(currentProfile.id), listAvailabilityPeriods()]);
       setPeriods(periodRows);
-      setAvs(data.length ? data : mockAvailabilities.filter((a) => a.staff_id === DEMO_USER.id));
-      setMsg('Supabase接続時は実データ、未接続時はデモスタッフとして表示しています');
-    }).catch((error) => setMsg(`${(error as Error).message}（デモデータを表示中）`));
+      setAvs(data);
+      setMsg('Supabase実データを表示しています');
+    })().catch((error) => setMsg((error as Error).message));
   }, []);
   useEffect(() => {
     const closePanel = () => setPanelPosition(null);
@@ -60,8 +65,9 @@ export default function Page() {
     };
   }, []);
 
-  function updateLocal(workDate: string, status: AvailabilityStatus, note = avs.find((a) => a.work_date === workDate && a.staff_id === DEMO_USER.id)?.note ?? '') {
-    setAvs((current) => upsertLocalAvailability(current, workDate, status, note));
+  function updateLocal(workDate: string, status: AvailabilityStatus, note = avs.find((a) => a.work_date === workDate && a.staff_id === profile?.id)?.note ?? '') {
+    if (!profile) return;
+    setAvs((current) => upsertLocalAvailability(current, profile.id, profile.company_id, workDate, status, note));
   }
 
   function openPanel(workDate: string, element: HTMLButtonElement) {
@@ -77,7 +83,8 @@ export default function Page() {
   }
 
   async function saveAll() {
-    const rows = avs.filter((a) => a.staff_id === DEMO_USER.id).map(({ company_id, work_date, status, note }) => ({ company_id, work_date, status, note, staff_id: DEMO_USER.id }));
+    if (!profile) { setMsg('プロフィールが見つかりません。管理者に確認してください。'); return; }
+    const rows = avs.filter((a) => a.staff_id === profile.id).map(({ company_id, work_date, status, note }) => ({ company_id, work_date, status, note, staff_id: profile.id }));
     try { await upsertAvailabilities(rows); setMsg('保存しました'); setPanelPosition(null); } catch (error) { setMsg(`${(error as Error).message}（画面上のみ更新しました）`); }
   }
 
@@ -102,7 +109,7 @@ export default function Page() {
         <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 sm:gap-2">{['日','月','火','水','木','金','土'].map((d) => <div key={d}>{d}</div>)}</div>
         <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
           {days.map((day) => {
-            const av = avs.find((a) => a.work_date === day.date && a.staff_id === DEMO_USER.id);
+            const av = avs.find((a) => a.work_date === day.date && a.staff_id === profile?.id);
             const opt = options.find((o) => o.value === (av?.status ?? 'unavailable'))!;
             const inMonth = day.month === month.getMonth();
             const isSelected = selectedDate === day.date && panelPosition;
@@ -112,7 +119,7 @@ export default function Page() {
             </button>;
           })}
         </div>
-      </Card> : <Card className="p-4"><div className="grid gap-3 sm:grid-cols-7">{weekDays.map((day) => { const av = avs.find((a) => a.work_date === day.date && a.staff_id === DEMO_USER.id); const opt = options.find((o) => o.value === (av?.status ?? 'unavailable'))!; return <button key={day.date} onClick={(event) => openPanel(day.date, event.currentTarget)} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${opt.cellClassName}`}><p className="text-xs font-bold text-slate-400">{day.weekday}</p><div className="mt-2 flex items-center justify-between"><span className="text-lg font-bold text-slate-950">{day.label}</span><span className={`rounded-full border px-3 py-1 text-xl font-black ${opt.className}`}>{opt.mark}</span></div>{av?.note && <p className="mt-2 text-xs text-slate-500">{av.note}</p>}</button>; })}</div></Card>}
+      </Card> : <Card className="p-4"><div className="grid gap-3 sm:grid-cols-7">{weekDays.map((day) => { const av = avs.find((a) => a.work_date === day.date && a.staff_id === profile?.id); const opt = options.find((o) => o.value === (av?.status ?? 'unavailable'))!; return <button key={day.date} onClick={(event) => openPanel(day.date, event.currentTarget)} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${opt.cellClassName}`}><p className="text-xs font-bold text-slate-400">{day.weekday}</p><div className="mt-2 flex items-center justify-between"><span className="text-lg font-bold text-slate-950">{day.label}</span><span className={`rounded-full border px-3 py-1 text-xl font-black ${opt.className}`}>{opt.mark}</span></div>{av?.note && <p className="mt-2 text-xs text-slate-500">{av.note}</p>}</button>; })}</div></Card>}
       {panelPosition && (
         <div className="fixed inset-0 z-50 pointer-events-none">
           <div className="fixed bottom-0 left-0 right-0 w-full rounded-t-[2rem] border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/70 pointer-events-auto sm:absolute sm:w-[calc(100vw-24px)] sm:max-w-[344px] sm:rounded-3xl" style={typeof window !== 'undefined' && window.innerWidth >= 640 ? { top: panelPosition.top, left: panelPosition.left } : undefined}>
@@ -153,8 +160,8 @@ function buildCalendarDays(month: Date) {
 }
 function addMonths(date: Date, diff: number) { return new Date(date.getFullYear(), date.getMonth() + diff, 1); }
 function clamp(value: number, min: number, max: number) { return Math.min(Math.max(value, min), max); }
-function upsertLocalAvailability(current: Availability[], workDate: string, status: AvailabilityStatus, note: string) {
-  const existing = current.find((a) => a.work_date === workDate && a.staff_id === DEMO_USER.id);
+function upsertLocalAvailability(current: Availability[], staffId: string, companyId: string, workDate: string, status: AvailabilityStatus, note: string) {
+  const existing = current.find((a) => a.work_date === workDate && a.staff_id === staffId);
   if (existing) return current.map((a) => (a.id === existing.id ? { ...a, status, note } : a));
-  return [...current, { id: `demo-${workDate}`, company_id: mockCompany.id, staff_id: DEMO_USER.id, work_date: workDate, status, note, created_at: new Date().toISOString() }];
+  return [...current, { id: `availability-${staffId}-${workDate}`, company_id: companyId || mockCompany.id, staff_id: staffId, work_date: workDate, status, note, created_at: new Date().toISOString() }];
 }
