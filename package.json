@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build.mjs",
+    "build": "next build",
+    "check": "node scripts/build.mjs",
     "start": "next start",
-    "lint": "next lint",
-    "next:build": "next build"
+    "lint": "next lint"
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",
