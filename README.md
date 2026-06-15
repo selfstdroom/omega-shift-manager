@@ -34,10 +34,10 @@ ADMIN_SESSION_SECRET=replace-with-long-random-secret
 1. Supabaseプロジェクトを作成します。
 2. Supabase Dashboard > SQL Editor を開き、`supabase/schema.sql` の内容を貼り付けて **Run** を実行します。
    - `schema.sql` は既存のテーブル・enum・関連関数を削除してから再作成するため、再実行すると既存データは削除されます。
-   - 管理者ログイン用の `admin_accounts` テーブルと、bcryptハッシュを `pgcrypto` の `crypt` で照合する `verify_admin_login` 関数も作成します。
+   - 管理者ログイン用の `admin_accounts` テーブルを作成します。開発用の仮実装として `password_text` に平文パスワードを保存し、`/api/admin/login` で `login_id` と `password_text` を照合します。
 3. 続けて SQL Editor の新しいクエリに `supabase/seed.sql` の内容を貼り付けて **Run** を実行します。
    - 初期データとして会社、事業所、デモ用プロフィール、案件、勤務可能日、初期管理者を投入します。
-   - 初期管理者のパスワードは `admin_accounts.password_hash` にbcryptハッシュとして保存され、平文パスワードはDBに保存されません。
+   - 初期管理者として `login_id: admin` / `password_text: omega1234` / `name: 管理者` を投入します。
 
 ## ログインURLと初期認証情報
 
@@ -45,7 +45,7 @@ ADMIN_SESSION_SECRET=replace-with-long-random-secret
   - ログインID: `admin`
   - 初期パスワード: `omega1234`
   - 管理者はメールアドレスではなく、発行されたログインIDとパスワードでログインします。
-  - **本番利用前に必ず初期管理者パスワードを変更してください。**
+  - **開発用の仮実装です。現在は `admin_accounts.password_text` に平文パスワードを保存しています。本番利用前に必ずハッシュ化方式へ戻し、初期管理者パスワードも変更してください。**
 - スタッフログインURL: `/staff/login`
   - スタッフはSupabase Authのメールアドレス / パスワードでログインします。
 - スタッフ新規登録URL: `/staff/signup`
