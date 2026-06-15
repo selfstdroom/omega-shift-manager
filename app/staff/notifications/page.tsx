@@ -8,21 +8,33 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { getGoogleCalendarUrl, roleLabel, type ShiftRow } from '@/components/staffShiftUi';
-import { demoStaff, getDemoShiftRows } from '@/lib/demo';
+import { getCurrentStaffProfile, listCurrentStaffShiftRows } from '@/lib/staffAuth';
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/repositories/notificationRepository';
-import type { Notification } from '@/lib/types';
+import type { Notification, Profile } from '@/lib/types';
 
 export default function StaffNotificationsPage() {
   const [items, setItems] = useState<Notification[]>([]);
   const [selected, setSelected] = useState<Notification | null>(null);
-  const shifts = useMemo(() => getDemoShiftRows(), []);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [shifts, setShifts] = useState<ShiftRow[]>([]);
+  const [msg, setMsg] = useState('');
 
-  const load = () => listNotifications(demoStaff.id).then((data) => {
+  const load = async (staffId = profile?.id) => {
+    if (!staffId) return;
+    const data = await listNotifications(staffId);
     const sorted = [...data].sort((a, b) => b.created_at.localeCompare(a.created_at));
     setItems(sorted);
-  });
+  };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    (async () => {
+      const { profile: currentProfile, message } = await getCurrentStaffProfile();
+      if (!currentProfile) { setMsg(message ?? 'ログイン情報を確認できません。再ログインしてください。'); return; }
+      setProfile(currentProfile);
+      const [{ data, error }] = await Promise.all([listCurrentStaffShiftRows(currentProfile.id), load(currentProfile.id)]);
+      if (error) setMsg(error.message); else setShifts((data ?? []) as unknown as ShiftRow[]);
+    })();
+  }, []);
 
   const unread = useMemo(() => items.filter((item) => !item.is_read), [items]);
   const read = useMemo(() => items.filter((item) => item.is_read), [items]);
@@ -32,21 +44,22 @@ export default function StaffNotificationsPage() {
     setSelected(item);
     if (!item.is_read) {
       await markNotificationRead(item.id);
-      await load();
+      await load(item.staff_id);
       setSelected({ ...item, is_read: true });
     }
   };
 
   const markAllRead = async () => {
-    await markAllNotificationsRead(demoStaff.id);
-    setItems((current) => current.map((item) => item.staff_id === demoStaff.id ? { ...item, is_read: true } : item));
-    await load();
+    if (!profile) return;
+    await markAllNotificationsRead(profile.id);
+    setItems((current) => current.map((item) => item.staff_id === profile.id ? { ...item, is_read: true } : item));
+    await load(profile.id);
     setSelected((current) => current ? { ...current, is_read: true } : current);
   };
 
   return (
     <div>
-      <PageHeader title="通知" description="通知をタップすると、確定シフトの詳細確認とGoogleカレンダー追加ができます。" actions={unread.length > 0 ? <Button variant="secondary" onClick={markAllRead}>すべて既読</Button> : undefined} />
+      <PageHeader title="通知" description={msg || '通知をタップすると、確定シフトの詳細確認とGoogleカレンダー追加ができます。'} actions={unread.length > 0 ? <Button variant="secondary" onClick={markAllRead}>すべて既読</Button> : undefined} />
       <Card className="mb-5 bg-gradient-to-r from-blue-600 to-slate-900 p-6 text-white">
         <p className="text-sm font-black text-blue-100">未読通知</p>
         <p className="mt-1 text-4xl font-black">{unread.length}件</p>

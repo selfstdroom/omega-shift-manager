@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { mockCompany } from '@/lib/mockData';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 type Workplace = { id: string; company_id: string; name: string };
@@ -32,7 +33,7 @@ export default function StaffSignupPage() {
     setLoading(true); setMessage('');
     const result = await supabase.auth.signUp({ email: form.email, password: form.password, options: { data: { name: form.name, phone: form.phone } } });
     if (result.error || !result.data.user) { setMessage(result.error?.message ?? '登録に失敗しました。'); setLoading(false); return; }
-    const { error } = await supabase.from('profiles').upsert({ id: result.data.user.id, company_id: workplace.company_id, workplace_id: workplace.id, name: form.name, role: 'staff', staff_role: 'staff', phone: form.phone });
+    const { error } = await supabase.from('profiles').upsert({ id: result.data.user.id, company_id: mockCompany.id, workplace_id: workplace.id, name: form.name, role: 'staff', staff_role: 'staff', phone: form.phone });
     setLoading(false);
     if (error) { setMessage(`プロフィール作成に失敗しました: ${error.message}`); return; }
     document.cookie = 'omega_staff_session=1; path=/; max-age=28800; SameSite=Lax';

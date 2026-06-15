@@ -5,34 +5,24 @@ import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ResponsiveEditor } from '@/components/ui/ResponsiveEditor';
 import { MonthlyCalendarDownload, PressableShiftCard, ShiftDetailSheet, type ShiftRow } from '@/components/staffShiftUi';
-import { DEMO_USER, getDemoShiftRows } from '@/lib/demo';
-import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
+import { getCurrentStaffProfile, listCurrentStaffShiftRows } from '@/lib/staffAuth';
 
 type Row = ShiftRow;
 const wd = ['日', '月', '火', '水', '木', '金', '土'];
 
 export default function Page() {
-  const [rows, setRows] = useState<Row[]>(getDemoShiftRows());
-  const [msg, setMsg] = useState('デモモードで表示中（SupabaseなしでもICSを生成できます）');
+  const [rows, setRows] = useState<Row[]>([]);
+  const [msg, setMsg] = useState('ログイン中スタッフ本人のシフトを表示しています');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedShift, setSelectedShift] = useState<Row | null>(null);
 
   useEffect(() => {
     (async () => {
-      const s = getSupabaseBrowserClient();
-      if (!s) return;
-
-      const { data: { user } } = await s.auth.getUser();
-      const currentUser = user ?? DEMO_USER;
-      const { data, error } = await s
-        .from('assignments')
-        .select('id,company_id,project_id,staff_id,run_id,status,is_leader,created_at,projects(id,company_id,workplace_id,title,work_date,start_time,end_time,location,required_people,required_leaders,note,created_at)')
-        .eq('staff_id', currentUser.id);
-
-      if (!error && data?.length) {
-        setRows(data as unknown as Row[]);
-        setMsg(user ? 'Supabaseの確定シフトからICSを生成できます' : 'デモスタッフとして表示しています');
-      }
+      const { profile, message } = await getCurrentStaffProfile();
+      if (!profile) { setMsg(message ?? 'ログイン情報を確認できません。再ログインしてください。'); return; }
+      const { data, error } = await listCurrentStaffShiftRows(profile.id);
+      if (error) setMsg(error.message);
+      else { setRows((data ?? []) as unknown as Row[]); setMsg('Supabaseの確定シフトからICSを生成できます'); }
     })();
   }, []);
   const firstShift = rows[0]?.projects?.work_date;
@@ -51,7 +41,7 @@ export default function Page() {
   return <div><PageHeader title="カレンダー" description="シフト日をタップすると、その日の予定一覧と詳細を確認できます。" />
     <MonthlyCalendarDownload rows={rows} />
     {msg && <p className="mb-3 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-700">{msg}</p>}
-    <Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 p-4"><h2 className="text-xl font-bold">{y}年 {m + 1}月</h2><Badge tone="blue">Demo Shift</Badge></div><div className="grid grid-cols-7 bg-slate-50 text-center text-xs font-semibold text-slate-500">{wd.map((x) => <div className="py-2" key={x}>{x}</div>)}</div><div className="grid grid-cols-7">{days.map((d, i) => {
+    <Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 p-4"><h2 className="text-xl font-bold">{y}年 {m + 1}月</h2><Badge tone="blue">My Shift</Badge></div><div className="grid grid-cols-7 bg-slate-50 text-center text-xs font-semibold text-slate-500">{wd.map((x) => <div className="py-2" key={x}>{x}</div>)}</div><div className="grid grid-cols-7">{days.map((d, i) => {
       const key = d ? dateKey(d) : '';
       const shifts = d ? byDate(key) : [];
       const hasShifts = shifts.length > 0;
