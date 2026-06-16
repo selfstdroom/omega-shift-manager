@@ -48,7 +48,7 @@ export default function Page() {
 
   useEffect(() => {
     (async () => {
-      const { profile: currentProfile, message } = await getCurrentStaffProfile();
+      const { profile: currentProfile, message } = await getCurrentStaffProfile({ createIfMissing: true });
       if (!currentProfile) {
         setMsg(message ?? 'ログイン情報を確認できません。再ログインしてください。');
         if ((message ?? LOGIN_REQUIRED_MESSAGE) === LOGIN_REQUIRED_MESSAGE) router.replace('/staff/login');
@@ -116,10 +116,10 @@ function AvailabilityCell({ day, inCurrentRange, availability, onSelect, onNote 
     <div className="grid grid-cols-3 gap-1" aria-label={`${day.date}の勤務可否`}>
       {options.map((option) => {
         const active = availability?.status === option.value;
-        return <button key={option.value} type="button" onClick={() => onSelect(day.date, option.value)} className={`min-h-9 rounded-xl border text-base font-black shadow-sm transition active:scale-95 sm:min-h-10 ${active ? option.activeClassName : `${option.buttonClassName} opacity-75 hover:opacity-100`}`} aria-pressed={active} title={option.label}>{option.mark}</button>;
+        return <button key={option.value} type="button" onClick={(event) => { event.stopPropagation(); onSelect(day.date, option.value); }} className={`min-h-10 touch-manipulation rounded-xl border text-base font-black shadow-sm transition active:scale-95 sm:min-h-11 ${active ? option.activeClassName : `${option.buttonClassName} opacity-75 hover:opacity-100`}`} aria-pressed={active} title={option.label}>{option.mark}</button>;
       })}
     </div>
-    {availability?.status === 'conditional' && <Input className="mt-1 h-9 rounded-xl px-2 text-xs" placeholder="メモ" value={availability.note ?? ''} onChange={(e) => onNote(day.date, e.target.value)} />}
+    {availability?.status === 'conditional' && <Input className="mt-1 h-9 rounded-xl px-2 text-xs" placeholder="メモ" value={availability.note ?? ''} onClick={(event) => event.stopPropagation()} onChange={(e) => onNote(day.date, e.target.value)} />}
     {!availability && <p className="mt-2 text-center text-[10px] font-bold text-slate-300">未入力</p>}
   </div>;
 }

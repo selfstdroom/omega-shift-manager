@@ -19,7 +19,7 @@ export default function Page() {
   const [unreadCount, setUnreadCount] = useState(0);
   useEffect(() => {
     (async () => {
-      const { profile: currentProfile, message } = await getCurrentStaffProfile();
+      const { profile: currentProfile, message } = await getCurrentStaffProfile({ createIfMissing: true });
       if (!currentProfile) { setMsg(message ?? 'ログイン情報を確認できません。再ログインしてください。'); return; }
       setProfile(currentProfile);
       const [{ data, error }, notifications] = await Promise.all([listCurrentStaffShiftRows(currentProfile.id), listNotifications(currentProfile.id)]);
