@@ -35,4 +35,5 @@ export const getSubmissionStats = (period: AvailabilityPeriod, profiles: Profile
 };
 export const getDaysUntilDeadline = (deadline: string, now = new Date()) => Math.ceil((toDate(deadline).getTime() - now.getTime()) / 86400000);
 export const getActivePeriod = (periods: AvailabilityPeriod[], type: AvailabilityPeriodType) => periods.find((p) => p.period_type === type && p.status === 'open') ?? periods.find((p) => p.period_type === type) ?? periods[0];
-export const periodTypeLabel = (type: AvailabilityPeriodType) => type === 'monthly' ? '月ごと' : '週ごと';
+export const getCurrentSubmissionPeriod = (periods: AvailabilityPeriod[]) => periods.filter((p) => p.status === 'open').sort((a, b) => toDate(a.deadline).getTime() - toDate(b.deadline).getTime())[0] ?? periods[0];
+export const periodTypeLabel = (type: AvailabilityPeriodType) => type === 'monthly' ? '月単位' : '週単位';
