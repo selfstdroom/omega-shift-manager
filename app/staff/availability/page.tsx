@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { formatDateTimeJa, formatPeriodLabel, getActivePeriod, getDaysUntilDeadline, getPeriodDateRange, periodTypeLabel } from '@/lib/availabilityPeriods';
+import { formatDateTimeJa, formatPeriodLabel, getCurrentSubmissionPeriod, getDaysUntilDeadline, getPeriodDateRange, periodTypeLabel } from '@/lib/availabilityPeriods';
 import { LOGIN_REQUIRED_MESSAGE, getCurrentStaffProfile } from '@/lib/staffAuth';
 import { mockAvailabilityPeriods, mockCompany } from '@/lib/mockData';
 import { listAvailabilities, listAvailabilityPeriods, upsertAvailabilities } from '@/lib/repositories/availabilityRepository';
@@ -38,7 +38,7 @@ export default function Page() {
   const [msg, setMsg] = useState('ログイン中スタッフ本人の勤務可能日を表示しています');
   const [isSaving, setIsSaving] = useState(false);
 
-  const period = useMemo(() => getActivePeriod(periods, periodType), [periods, periodType]);
+  const period = useMemo(() => getCurrentSubmissionPeriod(periods), [periods]);
   const days = useMemo(() => buildCalendarDays(month), [month]);
   const weekDays = useMemo(() => buildWeekDays(period), [period]);
   const daysLeft = getDaysUntilDeadline(period.deadline);
@@ -57,6 +57,9 @@ export default function Page() {
       setProfile(currentProfile);
       const [data, periodRows] = await Promise.all([listAvailabilities(currentProfile.id), listAvailabilityPeriods()]);
       setPeriods(periodRows);
+      const currentPeriod = getCurrentSubmissionPeriod(periodRows);
+      setPeriodType(currentPeriod.period_type);
+      if (currentPeriod.target_month) setMonth(new Date(`${currentPeriod.target_month}-01`));
       setAvs(data);
       setSavedSnapshot(toSnapshot(data.filter((a) => a.staff_id === currentProfile.id)));
       setMsg('Supabase実データを表示しています。変更は「変更を保存」まで送信されません。');
@@ -96,7 +99,7 @@ export default function Page() {
     <div className="overflow-x-hidden pb-28">
       <PageHeader title="予定提出" description="カレンダー上で日付ごとに ○ △ × を直接選び、最後にまとめて保存します。" />
       {msg && <div className="mb-4"><Badge tone="blue">{msg}</Badge></div>}
-      <Card className="mb-4 p-4"><div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 sm:w-fit">{(['monthly','weekly'] as AvailabilityPeriodType[]).map((type) => <Button key={type} variant={periodType === type ? 'primary' : 'ghost'} onClick={() => setPeriodType(type)}>{periodTypeLabel(type)}</Button>)}</div><div className={`mb-4 rounded-2xl border p-4 ${isAfterDeadline ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-100 bg-blue-50 text-blue-900'}`}><p className="font-bold">{period.period_type === 'monthly' ? `${formatPeriodLabel(period)}の勤務可能日は ${formatDateTimeJa(period.deadline)} までに提出してください` : `${formatPeriodLabel(period)} の勤務可能日を ${formatDateTimeJa(period.deadline)} までに提出してください`}</p>{isAfterDeadline && <p className="mt-1 text-sm font-semibold">締切後です。今回は警告のみ表示し、編集は可能です。</p>}</div>
+      <Card className="mb-4 p-4"><div className={`mb-4 rounded-2xl border p-4 ${isAfterDeadline ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-100 bg-blue-50 text-blue-900'}`}><p className="font-bold">{period.period_type === 'monthly' ? `${formatPeriodLabel(period)}の勤務可能日は ${formatDateTimeJa(period.deadline)} までに提出してください` : `${formatPeriodLabel(period)} の勤務可能日を ${formatDateTimeJa(period.deadline)} までに提出してください`}</p>{isAfterDeadline && <p className="mt-1 text-sm font-semibold">締切後です。今回は警告のみ表示し、編集は可能です。</p>}</div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 className="text-xl font-bold text-slate-950">{periodType === 'monthly' ? monthLabel(month) : `${formatPeriodLabel(period)} の勤務可能日を提出`}</h2><p className="text-sm text-slate-500">日付セル内の ○ △ × を連続でタップできます。保存はまだ行われません。</p></div>
           {periodType === 'monthly' && <div className="grid grid-cols-[1fr_auto_1fr] gap-2 sm:flex"><Button variant="secondary" onClick={() => setMonth(addMonths(month, -1))}>前月</Button><Input type="month" value={toMonthInput(month)} onChange={(e) => setMonth(new Date(`${e.target.value}-01`))} className="w-36" /><Button variant="secondary" onClick={() => setMonth(addMonths(month, 1))}>翌月</Button></div>}
